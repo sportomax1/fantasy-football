@@ -1,242 +1,100 @@
+/* Fantasy Lens v23 — 3-file GitHub Pages build.
+   Core is pinned to the last verified consolidated build; this file adds the
+   depth drafted/available controls and historical-cache self repair. */
+document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@9c359b20027bc396b9f24872a66777d04f0704eb/fantasy-football.js"><\/script>');
 
-const API='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl';
-const POS={1:'QB',2:'RB',3:'WR',4:'TE'}, TEAM={0:'FA',1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GB',10:'TEN',11:'IND',12:'KC',13:'LV',14:'LAR',15:'MIA',16:'MIN',17:'NE',18:'NO',19:'NYG',20:'NYJ',21:'PHI',22:'ARI',23:'PIT',24:'LAC',25:'SF',26:'SEA',27:'TB',28:'WSH',29:'CAR',30:'JAX',33:'BAL',34:'HOU'};
-let players=[],calls=0,compareIds=new Set(),healthMap=new Map(),apiLog=[],seasonData={},depthData=null,draftedIds=new Set(JSON.parse(localStorage.getItem('fantasyLensDrafted')||'[]')),currentView=localStorage.getItem('fantasyLensView')||'draft',matrixMetric=localStorage.getItem('fantasyLensMatrixMetric')||'fantasy',matrixRange='5',depthMode=localStorage.getItem('fantasyLensDepthMode')||'grouped',state={pos:'ALL',team:'ALL',sort:'fantasy',dir:-1};
-const CACHE_DB='FantasyLensCache',CACHE_VER=1,CACHE_STORE='data';
-function openCache(){return new Promise((resolve,reject)=>{const r=indexedDB.open(CACHE_DB,CACHE_VER);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(CACHE_STORE))r.result.createObjectStore(CACHE_STORE)};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
-async function cachePut(key,value){try{const db=await openCache();await new Promise((res,rej)=>{const tx=db.transaction(CACHE_STORE,'readwrite');tx.objectStore(CACHE_STORE).put({value,ts:Date.now()},key);tx.oncomplete=res;tx.onerror=()=>rej(tx.error)});db.close()}catch(e){console.warn('cache put failed',e)}}
-async function cacheGet(key){try{const db=await openCache(),v=await new Promise((res,rej)=>{const r=db.transaction(CACHE_STORE).objectStore(CACHE_STORE).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});db.close();return v||null}catch(e){return null}}
-function finalizePlayers(list){for(const pos of ['QB','RB','WR','TE']){const asc=list.filter(p=>p.pos===pos).sort((a,b)=>a.fantasy-b.fantasy);asc.forEach((p,i)=>p.pct=Math.max(1,Math.round((i+1)/Math.max(1,asc.length)*100)));[...asc].sort((a,b)=>b.fantasy-a.fantasy).forEach((p,i)=>p.posRank=i+1)}const tg={};list.forEach(p=>(tg[p.team]??=[]).push(p));Object.values(tg).forEach(g=>g.sort((a,b)=>b.fantasy-a.fantasy).forEach((p,i)=>p.teamRank=i+1));const tpg={};list.forEach(p=>(tpg[p.team+'|'+p.pos]??=[]).push(p));Object.values(tpg).forEach(g=>g.sort((a,b)=>b.fantasy-a.fantasy).forEach((p,i)=>p.teamPosRank=i+1));return list}
-async function fetchSeason(y){
- const projected=y===2026,filter={players:{filterSlotIds:{value:[0,2,4,6]},limit:1000,sortPercOwned:{sortPriority:1,sortAsc:false},filterStatsForTopScoringPeriodIds:{value:18,additionalValue:projected?[`10${y}`,`00${y}`]:[`00${y}`]},filterStatsForSourceIds:{value:[projected?1:0]},filterStatsForSplitTypeIds:{value:[0]}}};
- const url=`${API}/seasons/${y}/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info`,data=await fetchJson(url,filter),entries=data.players||[];
- let list=entries.map(e=>parse(e,y,projected)).filter(Boolean).filter(p=>p.passYds||p.rushYds||p.recYds||p.passTD||p.rushTD||p.recTD||p.rushAtt||p.rec);
- if(!list.length)throw Error(`No ${projected?'projection':'actual'} records for ${y}`);
- const statKeys=['passYds','rushYds','recYds','passTD','rushTD','recTD','ints','rec','rushAtt','lostFum','totalYds','totalTD','turnovers'];
- list.forEach(p=>{statKeys.forEach(k=>p[k]=whole(p[k]));p.fantasy=whole(p.fantasy);p.season=y});
- seasonData[y]=finalizePlayers(list);return seasonData[y]
-}
-async function showSeason(y,preferCache=true){
- let hit=preferCache?await cacheGet('season:'+y):null;
- if(hit?.value){seasonData[y]=hit.value;players=y===2026?seasonData[y]:players;if(y===2026){players.forEach(p=>p.fantasy=whole(fantasy(p)));finalizePlayers(players);if(depthData)applySleeperMeta(depthData,players);renderTeamMenu();$('#search').disabled=false;$('#tablewrap').style.display='block';$('#empty').style.display='none';render()}$('#stamp').textContent=`2026 DRAFT • ${y===2026?'projections':'history'} restored from cache`;return true}return false
-}
+let depthDraftFilter=localStorage.getItem('fantasyLensDepthDraftFilter')||'all';
 
-function scoring(){return{rec:num($('#sRec')?.value??.5),passTD:num($('#sPassTD')?.value??4),passYds:Math.max(1,num($('#sPassYds')?.value??25)),int:num($('#sInt')?.value??-2),td:num($('#sTD')?.value??6),yds:Math.max(1,num($('#sYds')?.value??10)),fum:num($('#sFum')?.value??-2)}}
-function fantasy(p){let s=scoring();return p.passYds/s.passYds+p.passTD*s.passTD+p.ints*s.int+(p.rushYds+p.recYds)/s.yds+(p.rushTD+p.recTD)*s.td+p.rec*s.rec+p.lostFum*s.fum}
-function percentileStyle(p){let hue=Math.round(Math.max(0,Math.min(100,p))*1.15);return `background:hsl(${hue} 78% 46%);color:${p>55?'#071006':'#fff'}`}
-function recalc(){players.forEach(p=>p.fantasy=fantasy(p));for(const pos of ['QB','RB','WR','TE']){let g=players.filter(p=>p.pos===pos).sort((a,b)=>a.fantasy-b.fantasy);g.forEach((p,i)=>p.pct=Math.max(1,Math.round((i+1)/g.length*100)));[...g].sort((a,b)=>b.fantasy-a.fantasy).forEach((p,i)=>p.posRank=i+1)}render()}const $=s=>document.querySelector(s),num=x=>Number(x||0),fmt=x=>Math.round(num(x)).toLocaleString(),whole=x=>Math.round(num(x));
-for(let y=new Date().getFullYear();y>=2018;y--)$('#year').insertAdjacentHTML('beforeend',`<option ${y===new Date().getFullYear()?'selected':''}>${y}</option>`);
-['ALL','QB','RB','WR','TE'].forEach(p=>$('#positions').insertAdjacentHTML('beforeend',`<button class="btn ${p==='ALL'?'on':''}" data-p="${p}">${p}</button>`));
-function prog(t,n){$('#progress').style.display='block';$('#phase').textContent=t;$('#pct').textContent=n+'%';$('#bar').style.width=n+'%'}
-async function fetchJson(url,filter){calls++;let started=new Date().toISOString(),r,text;try{r=await fetch(url,{headers:{'x-fantasy-filter':JSON.stringify(filter),'accept':'application/json'}});text=await r.text();apiLog.unshift({time:started,url,filter,status:r.status,ok:r.ok,preview:text.slice(0,1800)});apiLog=apiLog.slice(0,30);renderApiLog();if(!r.ok)throw Error(`${r.status} ${r.statusText}\n${text.slice(0,700)}`);try{return JSON.parse(text)}catch{throw Error('ESPN returned non-JSON data')}}catch(e){if(!r){apiLog.unshift({time:started,url,filter,status:'FETCH ERROR',ok:false,preview:String(e)});apiLog=apiLog.slice(0,30);renderApiLog()}throw e}}
-function seasonStat(p,year,projected=false){
- const arr=[...(p.stats||[]),...(p.playerPoolEntry?.stats||[])];
- const source=projected?1:0;
- let exact=arr.find(s=>num(s.seasonId)===num(year)&&num(s.statSourceId)===source&&num(s.statSplitTypeId)===0);
- if(exact)return exact;
- return arr.find(s=>num(s.seasonId)===num(year)&&num(s.statSourceId)===source)||null;
+function installDepthDraftFilters(){
+  const bar=document.querySelector('.depthToolbar');
+  if(!bar||document.querySelector('#depthDraftFilters'))return;
+  const box=document.createElement('span');
+  box.id='depthDraftFilters';
+  box.style.cssText='display:inline-flex;gap:6px;align-items:center';
+  box.innerHTML='<button class="btn depthDraftFilter" data-df="all">All</button><button class="btn depthDraftFilter" data-df="available">Available</button><button class="btn depthDraftFilter" data-df="drafted">Drafted</button>';
+  const search=document.querySelector('#depthSearch');
+  bar.insertBefore(box,search||null);
+  box.querySelectorAll('button').forEach(b=>{
+    b.classList.toggle('on',b.dataset.df===depthDraftFilter);
+    b.onclick=()=>{
+      depthDraftFilter=b.dataset.df;
+      localStorage.setItem('fantasyLensDepthDraftFilter',depthDraftFilter);
+      box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      applyDepthDraftFilter();
+    };
+  });
 }
 
-function inferGames(p,year){
- const weekly=(p.stats||[]).filter(s=>num(s.seasonId)===num(year)&&num(s.statSourceId)===0&&num(s.statSplitTypeId)===1&&num(s.scoringPeriodId)>0&&num(s.scoringPeriodId)<=18);
- let played=0;
- for(const s of weekly){
-   const x=s.stats||{};
-   // Any logged offensive event = played. Include pass attempts/completions, rush attempts,
-   // targets/receptions, yards, TDs, INTs and fumbles so zero-yard appearances still count.
-   const ids=['0','1','3','4','20','23','24','25','40','41','42','43','53','68','69','70','71','72','73'];
-   if(ids.some(k=>Math.abs(num(x[k]))>0)) played++;
- }
- return played;
-}
-function parse(entry,year,projected=false){
- const p=entry.player||entry.playerPoolEntry?.player||entry, pos=POS[num(p.defaultPositionId)];if(!pos)return null;
- const st=seasonStat(p,year,projected);if(!st||!st.stats)return null;const x=st.stats;
- let age=num(p.age);if(!age&&p.dateOfBirth){let bd=new Date(p.dateOfBirth), now=new Date();age=now.getFullYear()-bd.getFullYear()-((now.getMonth()<bd.getMonth()||(now.getMonth()===bd.getMonth()&&now.getDate()<bd.getDate()))?1:0)}
- const row={id:String(p.id||entry.id),name:p.fullName||p.displayName||'Unknown',age:age||0,pos,team:TEAM[num(st.proTeamId||p.proTeamId)]||'—',teamId:num(st.proTeamId||p.proTeamId),
-  gp:inferGames(p,year),passYds:num(x['3']??x['22']),passTD:num(x['4']),ints:num(x['20']),rushAtt:num(x['23']),rushYds:num(x['24']??x['40']),rushTD:num(x['25']),
-  rec:num(x['41']??x['53']),recYds:num(x['42']),recTD:num(x['43']),lostFum:num(x['72']),projected,healthPct:null,healthLabel:'Loading…'};
- row.totalTD=row.passTD+row.rushTD+row.recTD;
- row.totalYds=row.passYds+row.rushYds+row.recYds;
- row.turnovers=row.ints+row.lostFum;
- // ESPN standard/non-PPR offense: 1/25 pass yds, 4/pass TD, -2 INT, 1/10 rush+rec yds, 6 rush+rec TD, -2 fumble lost.
- row.fantasy=row.passYds/25+row.passTD*4-row.ints*2+row.rushYds/10+row.rushTD*6+row.recYds/10+row.recTD*6+row.rec*.5-row.lostFum*2;
- row.head=`https://a.espncdn.com/i/headshots/nfl/players/full/${row.id}.png`;row.logo=row.team!=='—'&&row.team!=='FA'?`https://a.espncdn.com/i/teamlogos/nfl/500/${row.team.toLowerCase()}.png`:'';
- return row
+function draftedNameSet(){
+  try{return new Set(players.filter(p=>draftedIds.has(String(p.id))).map(p=>String(p.name||'').toLowerCase()).filter(Boolean))}
+  catch{return new Set()}
 }
 
-function ageFromDOB(v){if(!v)return 0;const bd=new Date(v);if(Number.isNaN(bd.getTime()))return 0;const now=new Date();let a=now.getFullYear()-bd.getFullYear();if(now.getMonth()<bd.getMonth()||(now.getMonth()===bd.getMonth()&&now.getDate()<bd.getDate()))a--;return a}
-function applySleeperMeta(map,list=players){if(!map)return;const byEspn=new Map(),byName=new Map();for(const [sid,p] of Object.entries(map)){if(p.espn_id)byEspn.set(String(p.espn_id),{...p,sid});if(p.full_name)byName.set(String(p.full_name).toLowerCase(),{...p,sid})}for(const row of list){const m=byEspn.get(String(row.id))||byName.get(String(row.name).toLowerCase());if(!m)continue;row.active=m.active!==false;row.depthOrder=m.depth_chart_order==null?null:num(m.depth_chart_order);row.depthPosition=m.depth_chart_position||m.position||row.pos;row.sleeperId=m.sid;const calc=ageFromDOB(m.birth_date||m.birthDate);if(calc)row.age=calc;else if(m.age)row.age=whole(m.age)}render()}
-function seasonRow(id,y){return (seasonData[y]||[]).find(p=>String(p.id)===String(id))||null}
-function primaryYards(p){if(!p)return 0;if(p.pos==='QB')return p.passYds;return p.rushYds+p.recYds}
-function threeYear(p,metric='fantasy'){const vals=[2023,2024,2025].map(y=>seasonRow(p.id,y)).filter(Boolean).map(r=>metric==='yards'?primaryYards(r):num(r[metric]));return vals.length?whole(vals.reduce((a,b)=>a+b,0)/vals.length):0}
-function trend3(p){const a=seasonRow(p.id,2024),b=seasonRow(p.id,2025);if(!a||!b)return null;return whole(b.fantasy-a.fantasy)}
-function isVisiblePlayer(p,ignorePos=false){let q=$('#search').value.toLowerCase(),tf=state.team,mp=num($('#minPct').value),hideInactive=$('#hideInactive')?.checked,hideDrafted=$('#hideDrafted')?.checked,draftedOnly=$('#draftedOnly')?.checked;return (ignorePos||state.pos==='ALL'||p.pos===state.pos)&&(tf==='ALL'||p.team===tf)&&p.pct>=mp&&(!hideInactive||p.active!==false)&&(!hideDrafted||!draftedIds.has(p.id))&&(!draftedOnly||draftedIds.has(p.id))&&(!q||`${p.name} ${p.team} ${p.pos}`.toLowerCase().includes(q))}
-async function enrichAges(year){
- // Fantasy player-pool payload does not reliably include age. ESPN Core athlete profiles do.
- // Do this after the fast stats render so age lookups never block the main table.
- const queue=players.filter(p=>!p.age);
- let i=0, workers=Math.min(16,queue.length);
- async function worker(){
-   while(i<queue.length){
-     const p=queue[i++];
-     try{
-       const u=`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/${year}/athletes/${p.id}?lang=en&region=us`;
-       calls++; const r=await fetch(u); if(!r.ok) continue; const a=await r.json();
-       if(a.age) p.age=num(a.age);
-       else if(a.dateOfBirth){let bd=new Date(a.dateOfBirth),d=new Date();p.age=d.getFullYear()-bd.getFullYear()-((d.getMonth()<bd.getMonth()||(d.getMonth()===bd.getMonth()&&d.getDate()<bd.getDate()))?1:0)}
-     }catch{}
-   }
- }
- await Promise.all(Array.from({length:workers},worker)); render();
-}
-function healthLabel(pct){if(pct==null)return '—';if(pct>=90)return 'Excellent';if(pct>=80)return 'Good';if(pct>=65)return 'Fair';return 'Risk'}
-async function enrichHealth(baseYear=2026){
- const years=[2021,2022,2023,2024,2025], ids=new Set(players.map(p=>p.id));
- const detail=new Map(players.map(p=>[p.id,[]]));
- await Promise.all(years.map(async y=>{
-  const filter={players:{filterSlotIds:{value:[0,2,4,6]},limit:1000,sortPercOwned:{sortPriority:1,sortAsc:false},filterStatsForTopScoringPeriodIds:{value:18,additionalValue:[`00${y}`]},filterStatsForSourceIds:{value:[0]}}};
-  try{const data=await fetchJson(`${API}/seasons/${y}/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_playercard`,filter);for(const e of data.players||[]){const p=e.player||e.playerPoolEntry?.player||e,id=String(p.id||e.id);if(!ids.has(id))continue;const gp=inferGames(p,y),sched=17;detail.get(id)?.push({year:y,gp:whole(gp),sched,pct:Math.min(100,whole(gp/sched*100))})}}catch(e){console.warn('Health history failed for',y,e)}}));
- players.forEach(p=>{const vals=(detail.get(p.id)||[]).sort((a,b)=>a.year-b.year);p.healthYears=vals;const gp=vals.reduce((a,b)=>a+b.gp,0),sched=vals.reduce((a,b)=>a+b.sched,0);p.healthPct=sched?whole(gp/sched*100):null;p.healthLabel=healthLabel(p.healthPct)});render();
+function applyDepthDraftFilter(){
+  installDepthDraftFilters();
+  const root=document.querySelector('#depthResults');
+  if(!root)return;
+  const names=draftedNameSet();
+  const candidates=root.querySelectorAll('[data-player-id],[data-player-name],.depthPlayer,.depth-player,.depthChip,.depth-chip,.depthName,.depth-name');
+  candidates.forEach(el=>{
+    const id=String(el.dataset.playerId||el.dataset.espnId||'');
+    const txt=String(el.dataset.playerName||el.textContent||'').toLowerCase();
+    const drafted=(id&&draftedIds.has(id))||[...names].some(n=>n&&txt.includes(n));
+    el.dataset.drafted=drafted?'1':'0';
+    el.style.opacity=drafted?'.42':'';
+    el.style.textDecoration=drafted?'line-through':'';
+    const hide=(depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted);
+    el.style.display=hide?'none':'';
+  });
+  // If depth cards are team/position containers rather than player nodes, hide
+  // individual child rows by matching known player names.
+  root.querySelectorAll('tr,li,.player,.depthRow,.depth-row').forEach(el=>{
+    const txt=String(el.textContent||'').toLowerCase();
+    const drafted=[...names].some(n=>n&&txt.includes(n));
+    if(!drafted&&depthDraftFilter==='all')return;
+    if(drafted){el.style.opacity='.42';el.style.textDecoration='line-through'}
+    const hide=(depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted);
+    el.style.display=hide?'none':'';
+  });
 }
 
-async function run(){
- $('#run').disabled=true;$('#empty').style.display='none';$('#debug').style.display='none';calls=0;
- try{
-  const years=[2018,2019,2020,2021,2022,2023,2024,2025,2026];
-  for(let i=0;i<years.length;i++){const y=years[i];prog(`Loading ${y} ${y===2026?'projections':'actuals'}…`,Math.round((i/11)*100));const list=await fetchSeason(y);await cachePut('season:'+y,list)}
-  players=seasonData[2026]||[];finalizePlayers(players);
-  prog('Loading active players + all NFL depth charts…',84);await loadDepth(true);if(depthData)applySleeperMeta(depthData,players);
-  prog('Building 5-year GP availability history…',92);await enrichHealth(2026);await cachePut('season:2026',players);
-  await cachePut('lastFullLoad',{at:Date.now(),years});$('#cacheState').textContent='Cache: saved';prog('Draft data ready',100);renderTeamMenu();render();
- }catch(e){console.error(e);$('#empty').style.display='block';$('#empty').innerHTML='<b>Refresh failed</b>Existing cached draft data remains available.';$('#debug').style.display='block';$('#debug').textContent=e.message;prog('Load failed',100)}
- finally{$('#run').disabled=false}
+async function ensureHistoricalViews(force=false){
+  try{
+    if(!players.length){
+      const cur=await cacheGet('season:2026');
+      if(cur?.value?.length){seasonData[2026]=cur.value;players=cur.value;finalizePlayers(players)}
+    }
+    for(const y of [2021,2022,2023,2024,2025]){
+      if(seasonData[y]?.length&&!force)continue;
+      const hit=await cacheGet('season:'+y);
+      if(hit?.value?.length){seasonData[y]=hit.value;continue}
+      try{
+        const rows=await fetchSeason(y);
+        if(rows?.length)await cachePut('season:'+y,rows);
+      }catch(e){console.warn('Fantasy Lens historical cache repair failed for',y,e)}
+    }
+    // Health is derived from weekly history and can become stale/empty independently
+    // of the season cache. Rebuild it when the current player set has no usable health.
+    const hasHealth=players.some(p=>p.healthPct!=null&&Number(p.healthPct)>0);
+    if(players.length&&(!hasHealth||force)){
+      try{await enrichHealth(2026)}catch(e){console.warn('Fantasy Lens health repair failed',e)}
+    }
+    render();
+  }catch(e){console.warn('Fantasy Lens cache hydration failed',e)}
 }
 
-function filtered(){return players.filter(p=>isVisiblePlayer(p)).sort((a,b)=>{let A=a[state.sort],B=b[state.sort];return(typeof A==='string'?A.localeCompare(B):(A||0)-(B||0))*state.dir})}
-function img(src,cls){return src?`<img class="${cls}" src="${src}" loading="lazy" onerror="this.style.display='none'">`:''}
-function saveDrafted(){localStorage.setItem('fantasyLensDrafted',JSON.stringify([...draftedIds]));$('#draftImportCount')&&($('#draftImportCount').textContent=draftedIds.size+' currently drafted')}
-function toggleDraft(id){id=String(id);if(draftedIds.has(id))draftedIds.delete(id);else draftedIds.add(id);saveDrafted();render();if($('#exploreModal')?.classList.contains('open')&&depthData)renderDepthMatrix(depthData)}
-function normName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
-function playerLookup(){return players.map(p=>({p,n:normName(p.name)})).filter(x=>x.n.length>=5).sort((a,b)=>b.n.length-a.n.length)}
-function parseDraftText(text){const lookup=playerLookup(),matched=new Map(),unmatched=[];const rawText=String(text||'');const all=' '+normName(rawText)+' ';for(const x of lookup){if(all.includes(' '+x.n+' '))matched.set(x.p.id,x.p)}for(const raw of rawText.split(/\r?\n/)){const line=raw.trim();if(!line)continue;const n=' '+normName(line)+' ';const hits=lookup.filter(x=>n.includes(' '+x.n+' '));if(!hits.length)unmatched.push(line);else for(const x of hits)matched.set(x.p.id,x.p)}return{matched:[...matched.values()],unmatched}}
-function applyDraftImport(){const text=$('#draftImportText').value,res=parseDraftText(text);for(const p of res.matched)draftedIds.add(String(p.id));saveDrafted();render();if(depthData&&$('#exploreModal').classList.contains('open'))renderDepthMatrix(depthData);const names=res.matched.map(p=>`${p.name} (${p.pos} ${p.team})`);$('#draftImportStatus').textContent=`Matched ${res.matched.length} player${res.matched.length===1?'':'s'} and marked drafted.\n\n${names.length?'MATCHED:\n'+names.join('\n'):'No player names matched.'}${res.unmatched.length?`\n\nUnmatched lines (${res.unmatched.length}):\n${res.unmatched.slice(0,18).join('\n')}${res.unmatched.length>18?'\n…':''}`:''}`}
-function resetDrafted(){if(!draftedIds.size)return;if(!confirm(`Clear all ${draftedIds.size} drafted players?`))return;draftedIds.clear();saveDrafted();$('#draftedOnly').checked=false;localStorage.setItem('fantasyLensDraftedOnly','false');render();if(depthData&&$('#exploreModal').classList.contains('open'))renderDepthMatrix(depthData)}
-function teamLogo(abbr){return abbr&&abbr!=='ALL'&&abbr!=='FA'?`https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png`:''}
-function renderTeamMenu(){const teams=[...new Set(players.map(p=>p.team).filter(t=>t&&t!=='—'))].sort();$('#teamMenu').innerHTML=`<button class="teamOption ${state.team==='ALL'?'on':''}" data-team="ALL">All Teams</button>`+teams.map(t=>`<button class="teamOption ${state.team===t?'on':''}" data-team="${t}"><img src="${teamLogo(t)}">${t}</button>`).join('');const logo=teamLogo(state.team);$('#teamFilterIcon').innerHTML=logo?`<img src="${logo}" style="width:18px;height:18px;object-fit:contain">`:'';$('#teamFilterText').textContent=state.team==='ALL'?'All Teams':state.team}
-function renderApiLog(){const el=$('#rawApiLog');if(!el)return;el.textContent=apiLog.length?apiLog.map((x,i)=>`#${i+1} ${x.time}\n${x.status}${x.ok===false?' ERROR':''}  ${x.url}\nFILTER: ${JSON.stringify(x.filter)}\nPREVIEW: ${x.preview}`).join('\n\n────────────────────────\n\n'):'No API calls yet.'}
-function playerCell(p,withRank=false){return `<div class="playerline">${withRank?`<span class="draftRank">#${p.posRank}</span>`:''}<button class="draftBtn ${draftedIds.has(p.id)?'on':''}" onclick="event.stopPropagation();toggleDraft('${p.id}')">${draftedIds.has(p.id)?'Drafted':'Draft'}</button><input class="comparecheck" type="checkbox" ${compareIds.has(p.id)?'checked':''} onclick="event.stopPropagation();toggleCompare('${p.id}')"><div class="player clickable" onclick="career('${p.id}')">${img(p.head,'head')}<div><div class="name">${p.name}</div><div class="sub">${img(p.logo,'logo')}<span class="pill">${p.pos}</span>${p.team}${p.active===false?'<span class="availabilityTag inactive">INACTIVE</span>':''}</div></div></div></div>`}
-function histMetric(p,y,metric){const r=seasonRow(p.id,y);if(!r)return '—';if(metric==='yards')return fmt(primaryYards(r));if(metric==='totalTD')return fmt(r.totalTD);if(metric==='turnovers')return fmt(r.turnovers);return fmt(r.fantasy)}
-
-function renderBestStrip(){if(currentView!=='draft'){ $('#bestStrip').innerHTML='';return }const base=players.filter(p=>isVisiblePlayer(p,true)&&!draftedIds.has(p.id));$('#bestStrip').innerHTML=`<div class="bestStrip">${['QB','RB','WR','TE'].map(pos=>{const p=base.filter(x=>x.pos===pos).sort((a,b)=>b.fantasy-a.fantasy)[0];return `<div class="bestPos"><strong>BEST ${pos}</strong>${p?`<div class="bestPlayer clickable" onclick="career('${p.id}')">${img(p.head,'')}<div><b>${p.name}</b><small>${p.team} · ${fmt(p.fantasy)} proj FP · #${p.posRank} ${pos}</small></div></div>`:'<small>—</small>'}</div>`}).join('')}</div>`}
-function tableWrap(headers,rows,cls=''){return `<table class="${cls}"><thead><tr>${headers.map(h=>`<th ${h.k?`data-k="${h.k}"`:''}>${h.t}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`}
-function renderDraft(d){$('#viewMeta').textContent='2026 projections + 2023–25 intelligence';const headers=[{t:'PLAYER',k:'name'},{t:'AGE',k:'age'},{t:'2026 PROJ FP',k:'fantasy'},{t:'POS RANK',k:'posRank'},{t:'2025 FP'},{t:'3YR AVG FP'},{t:'5YR HEALTH',k:'healthPct'},{t:'DEPTH'},{t:'2025 YDS'},{t:'2025 TD'}];const rows=d.map(p=>{const r25=seasonRow(p.id,2025);return `<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p,true)}</td><td>${p.age||'—'}</td><td><b>${fmt(p.fantasy)}</b></td><td><b>#${p.posRank}</b> ${p.pos}</td><td>${r25?fmt(r25.fantasy):'—'}</td><td><b>${fmt(threeYear(p,'fantasy'))}</b></td><td><b>${p.healthPct==null?'—':p.healthPct+'%'}</b><small style="display:block;color:var(--muted)">${p.healthLabel||'—'}</small></td><td>${p.depthOrder?`#${p.depthOrder} ${p.depthPosition||p.pos}`:'—'}</td><td>${r25?fmt(primaryYards(r25)):'—'}</td><td>${r25?fmt(r25.totalTD):'—'}</td></tr>`}).join('');$('#tablewrap').innerHTML=tableWrap(headers,rows)}
-function renderOverview(d){$('#viewMeta').textContent='Current value with recent trajectory';const headers=[{t:'PLAYER',k:'name'},{t:'AGE',k:'age'},{t:'PROJ FP',k:'fantasy'},{t:'2025 FP'},{t:'3YR AVG FP'},{t:'FP TREND'},{t:'3YR AVG YDS'},{t:'3YR AVG TD'},{t:'HEALTH',k:'healthPct'},{t:'TEAM POS',k:'teamPosRank'}];const rows=d.map(p=>{const r25=seasonRow(p.id,2025),tr=trend3(p),tc=tr==null?'trendFlat':tr>0?'trendUp':tr<0?'trendDown':'trendFlat';return `<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p)}</td><td>${p.age||'—'}</td><td><b>${fmt(p.fantasy)}</b></td><td>${r25?fmt(r25.fantasy):'—'}</td><td><b>${fmt(threeYear(p,'fantasy'))}</b></td><td class="${tc}">${tr==null?'—':`${tr>0?'+':''}${tr}`}</td><td>${fmt(threeYear(p,'yards'))}</td><td>${fmt(threeYear(p,'totalTD'))}</td><td>${p.healthPct==null?'—':p.healthPct+'%'}</td><td><b>#${p.teamPosRank||'—'}</b> ${p.team} ${p.pos}</td></tr>`}).join('');$('#tablewrap').innerHTML=tableWrap(headers,rows)}
-function metricNumber(p,y,metric){const r=seasonRow(p.id,y);if(!r)return null;if(metric==='yards')return whole(primaryYards(r));if(metric==='totalTD')return whole(r.totalTD);if(metric==='turnovers')return whole(r.turnovers);return whole(r.fantasy)}
-function matrixSpark(p,years,metric){const vals=years.map(y=>metricNumber(p,y,metric)),good=vals.filter(v=>v!=null);if(good.length<2)return '<span class="webHint">Not enough history</span>';const mn=Math.min(...good),mx=Math.max(...good),den=mx-mn||1,pts=vals.map((v,i)=>v==null?null:[5+i*(115/Math.max(1,years.length-1)),29-(v-mn)/den*23]).filter(Boolean);const poly=pts.map(x=>x.join(',')).join(' '),last=good.at(-1),first=good[0],delta=whole(last-first);return `<div class="matrixTrend"><svg class="miniTrend" viewBox="0 0 125 34" aria-label="Five year trend"><polyline points="${poly}"></polyline>${pts.map(x=>`<circle cx="${x[0]}" cy="${x[1]}" r="2"></circle>`).join('')}</svg><div class="trendCaption">${delta>0?'+':''}${fmt(delta)} across window</div></div>`}
-function renderMatrix(d){$('#viewMeta').textContent='2021–2025 actual trend • 2026 projection';const labels={fantasy:'Fantasy Points',yards:'Primary Yards',totalTD:'Touchdowns',turnovers:'Turnovers'},years=[2021,2022,2023,2024,2025];$('#matrixTools').style.display='flex';$('#matrixTools').innerHTML=`<span class="webHint">Metric:</span>${[['fantasy','FP'],['yards','Yards'],['totalTD','TD'],['turnovers','TO']].map(([k,t])=>`<button class="btn matrixMetric ${matrixMetric===k?'on':''}" data-metric="${k}">${t}</button>`).join('')}<span class="webHint" style="margin-left:8px">5 actual seasons + 2026 projection</span>`;const headers=[{t:'PLAYER'},...years.map(y=>({t:String(y)})),{t:'2026 PROJ'},{t:'5YR TREND'},{t:'3YR AVG'}];const rows=d.map(p=>`<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p)}</td>${years.map(y=>`<td>${histMetric(p,y,matrixMetric)}</td>`).join('')}<td><b>${histMetric(p,2026,matrixMetric)}</b></td><td>${matrixSpark(p,years,matrixMetric)}</td><td><b>${fmt(threeYear(p,matrixMetric==='yards'?'yards':matrixMetric))}</b></td></tr>`).join('');$('#tablewrap').innerHTML=`<div style="padding:7px 9px;font-size:9px;color:var(--muted)">${labels[matrixMetric]} • trend line uses 2021–2025 actuals; 2026 projection is separate.</div>`+tableWrap(headers,rows,'matrixTable')}
-function renderHealth(d){$('#viewMeta').textContent='Games played by season • 2021–2025';const years=[2021,2022,2023,2024,2025],headers=[{t:'PLAYER'},{t:'AGE',k:'age'},...years.map(y=>({t:`${y} GP`})),{t:'5YR GP'},{t:'MISSED'},{t:'AVAILABILITY',k:'healthPct'},{t:'ASSESSMENT'}];const rows=d.map(p=>{const map=Object.fromEntries((p.healthYears||[]).map(x=>[x.year,x])),gp=years.reduce((a,y)=>a+(map[y]?.gp||0),0),sched=years.reduce((a,y)=>a+(map[y]?.sched||17),0),missed=Math.max(0,sched-gp),pct=sched?whole(gp/sched*100):null,cl=pct>=80?'healthGood2':pct!=null&&pct<65?'healthRisk':'';return `<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p)}</td><td>${p.age||'—'}</td>${years.map(y=>{const h=map[y];return `<td class="gpCell">${h?`<b>${h.gp}</b><small>of ${h.sched}</small>`:'—'}</td>`}).join('')}<td><b>${gp}/${sched}</b></td><td>${missed}</td><td class="${cl}">${pct==null?'—':pct+'%'}${pct!=null?`<div class="healthPctBar"><i style="width:${pct}%"></i></div>`:''}</td><td>${healthLabel(pct)}</td></tr>`}).join('');$('#tablewrap').innerHTML=`<div class="healthSummary"><b>Health = availability, not a medical injury grade.</b> GP is counted from weekly offensive stat records; missed = scheduled regular-season games minus logged games.</div>`+tableWrap(headers,rows)}
-function render(){const d=filtered();$('#count').textContent=d.length;$('#matrixTools').style.display=currentView==='matrix'?'flex':'none';renderBestStrip();document.querySelectorAll('#viewNav [data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===currentView));if(currentView==='draft')renderDraft(d);else if(currentView==='overview')renderOverview(d);else if(currentView==='matrix')renderMatrix(d);else renderHealth(d);document.querySelectorAll('#tablewrap th[data-k]').forEach(h=>h.onclick=()=>{const k=h.dataset.k;if(state.sort===k)state.dir*=-1;else{state.sort=k;state.dir=-1}render()})}
-
-async function career(id){
- const base=players.find(p=>p.id===id);if(!base)return;
- $('#careerModal').classList.add('open');$('#careerTitle').textContent=base.name+' — Career';
- $('#careerHero').innerHTML=`<div class="careerhero">${img(base.head,'head')}<div><div class="name" style="font-size:20px">${base.name}</div><div class="sub">${img(base.logo,'logo')}${base.pos} • ${base.team} • Age ${base.age||'—'} • #${base.posRank} ${base.pos} • #${base.teamRank} ${base.team} offense • #${base.teamPosRank||'—'} ${base.team} ${base.pos}</div></div></div>`;
- $('#careerStatus').textContent='Loading career seasons in parallel…';$('#careerGrid').innerHTML='';
- const now=new Date().getFullYear(), years=Array.from({length:Math.min(18,now-2010+1)},(_,i)=>now-i);
- let cc=0;
- async function one(y){
-  const filter={players:{filterIds:{value:[Number(id)]},limit:1,sortPercOwned:{sortPriority:1,sortAsc:false},filterStatsForTopScoringPeriodIds:{value:18,additionalValue:[`00${y}`]}}};
-  const url=`${API}/seasons/${y}/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info`;
-  try{cc++;let data=await fetchJson(url,filter),e=(data.players||[]).find(x=>String(x.player?.id||x.id)===String(id))||(data.players||[])[0];if(!e)return null;let p=parse(e,y);if(!p)return null;p.totalYds=p.passYds+p.rushYds+p.recYds;p.turnovers=p.ints+p.lostFum;p.fantasy=fantasy(p);return {...p,year:y}}catch{return null}
- }
- const rs=(await Promise.all(years.map(one))).filter(Boolean).filter(p=>p.totalYds||p.totalTD||p.rushAtt||p.rec);
- let last=rs[0],avg=rs.length?rs.reduce((s,p)=>s+p.fantasy,0)/rs.length:0,peak=rs.length?[...rs].sort((a,b)=>b.fantasy-a.fantasy)[0]:null;
- let chronological=[...rs].sort((a,b)=>a.year-b.year), trend=chronological.length>1?(chronological.at(-1).fantasy-chronological.at(-2).fantasy):0;
- let vals=chronological.map(p=>p.fantasy),mx=Math.max(...vals,1),mn=Math.min(...vals,0),pts=vals.map((v,i)=>`${5+i*(140/Math.max(1,vals.length-1))},${38-(v-mn)/(mx-mn||1)*32}`).join(' ');
- let spark=`<svg class="spark" viewBox="0 0 150 42" aria-label="Career fantasy point trend"><polyline points="${pts}"/></svg>`;
- $('#careerStatus').innerHTML=`${rs.length} seasons found • ${cc} parallel season requests • Trend: <b style="color:${trend>=0?'var(--yellow)':'var(--red)'}">${trend>=0?'▲':'▼'} ${Math.abs(trend).toFixed(0)} pts</b>`;
- $('#careerHero').insertAdjacentHTML('afterend',`<div class="careerSummary"><div class="metric"><b>${peak?peak.fantasy.toFixed(0):'—'}</b><small>PEAK • ${peak?.year||''}</small></div><div class="metric"><b>${avg.toFixed(0)}</b><small>CAREER AVG</small></div><div class="metric"><b>${last?last.fantasy.toFixed(0):'—'}</b><small>LAST SEASON</small></div><div class="metric">${spark}<small>CAREER TREND</small></div></div>`);
- $('#careerGrid').innerHTML=rs.length?`<table><thead><tr><th>YEAR</th><th>AGE</th><th>GAMES</th><th>ACTIVE GAME %</th><th>TOTAL YDS</th><th>TD</th><th>TURNOVERS</th><th>FANTASY PTS</th></tr></thead><tbody>${rs.map(p=>{let sched=p.year>=2021?17:16, pct=p.gp?Math.min(100,Math.round(p.gp/sched*100)):null, seasonAge=base.age?base.age-(new Date().getFullYear()-p.year):0;return `<tr class="weekrow" onclick="seasonLog('${id}',${p.year},'${base.name.replace(/'/g,"\\'")}')"><td><b>${p.year}</b><small style="display:block;color:var(--muted)">tap for game log</small></td><td>${seasonAge||'—'}</td><td>${p.gp||'—'}${p.gp?' / '+sched:''}</td><td>${pct!==null?`<span class="percentile">${pct}%</span>`:'—'}</td><td><b>${fmt(p.totalYds)}</b></td><td class="td">${p.totalTD}</td><td class="to">${p.turnovers}</td><td><b>${p.projected?Math.round(p.fantasy):p.fantasy.toFixed(0)}</b></td></tr>`}).join('')}</tbody></table>`:'No career season stats returned.';
-}
-function toggleCompare(id){compareIds.has(id)?compareIds.delete(id):compareIds.size<4&&compareIds.add(id);let ps=players.filter(p=>compareIds.has(p.id));$('#compareChips').innerHTML=ps.map(p=>`<span class="comparechip">${p.name}</span>`).join('');$('#compareBar').classList.toggle('show',ps.length>0);render()}
-function showCompare(){let ps=players.filter(p=>compareIds.has(p.id));$('#compareModal').classList.add('open');$('#compareBody').innerHTML=ps.length?`<div class="careergrid"><table><thead><tr><th>METRIC</th>${ps.map(p=>`<th>${p.name}</th>`).join('')}</tr></thead><tbody>${[['Age','age'],['Position Rank','posRank'],['Percentile','pct'],['Total Yards','totalYds'],['TD','totalTD'],['Turnovers','turnovers'],['Half-PPR / Custom FP','fantasy']].map(([l,k])=>`<tr><td><b>${l}</b></td>${ps.map(p=>`<td>${k==='fantasy'?p[k].toFixed(0):p[k]}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:'Select players to compare.'}
-async function seasonLog(id,year,name){
- $('#careerTitle').textContent=`${name} — ${year} Game Log`;$('#careerStatus').textContent='Loading weekly game log…';$('#careerGrid').innerHTML='';
- const filter={players:{filterIds:{value:[Number(id)]},limit:1,sortPercOwned:{sortPriority:1,sortAsc:false},filterStatsForTopScoringPeriodIds:{value:18,additionalValue:[`00${year}`]}}};
- try{let data=await fetchJson(`${API}/seasons/${year}/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_playercard`,filter),e=(data.players||[])[0],p=e?.player||e,weekly=(p?.stats||[]).filter(s=>num(s.seasonId)===year&&num(s.statSourceId)===0&&num(s.statSplitTypeId)===1).sort((a,b)=>a.scoringPeriodId-b.scoringPeriodId);
- let rows=weekly.map(s=>{let x=s.stats||{},r={passYds:num(x['3']),passTD:num(x['4']),ints:num(x['20']),rushYds:num(x['24']),rushTD:num(x['25']),rec:num(x['41']??x['53']),recYds:num(x['42']),recTD:num(x['43']),lostFum:num(x['72'])};r.totalYds=r.passYds+r.rushYds+r.recYds;r.totalTD=r.passTD+r.rushTD+r.recTD;r.turnovers=r.ints+r.lostFum;r.fantasy=fantasy(r);return{...r,week:s.scoringPeriodId}}).filter(r=>r.totalYds||r.totalTD||r.turnovers||r.rec);
- $('#careerStatus').textContent=`${rows.length} games with logged offensive activity`;
- $('#careerGrid').innerHTML=`<table><thead><tr><th>WEEK</th><th>YDS</th><th>TD</th><th>TO</th><th>FP</th><th>REC</th><th>PASS YDS</th><th>RUSH YDS</th><th>REC YDS</th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.week}</b></td><td>${fmt(r.totalYds)}</td><td>${r.totalTD}</td><td>${r.turnovers}</td><td><b>${r.fantasy.toFixed(0)}</b></td><td>${r.rec}</td><td>${r.passYds}</td><td>${r.rushYds}</td><td>${r.recYds}</td></tr>`).join('')}</tbody></table><button class="btn" style="margin-top:10px" onclick="career('${id}')">← Back to Career</button>`;
- }catch(e){$('#careerStatus').textContent='Game log failed: '+e.message}
-}
-
-const DEPTH_TEAMS=[['ARI',22,'Arizona Cardinals'],['ATL',1,'Atlanta Falcons'],['BAL',33,'Baltimore Ravens'],['BUF',2,'Buffalo Bills'],['CAR',29,'Carolina Panthers'],['CHI',3,'Chicago Bears'],['CIN',4,'Cincinnati Bengals'],['CLE',5,'Cleveland Browns'],['DAL',6,'Dallas Cowboys'],['DEN',7,'Denver Broncos'],['DET',8,'Detroit Lions'],['GB',9,'Green Bay Packers'],['HOU',34,'Houston Texans'],['IND',11,'Indianapolis Colts'],['JAX',30,'Jacksonville Jaguars'],['KC',12,'Kansas City Chiefs'],['LV',13,'Las Vegas Raiders'],['LAC',24,'Los Angeles Chargers'],['LAR',14,'Los Angeles Rams'],['MIA',15,'Miami Dolphins'],['MIN',16,'Minnesota Vikings'],['NE',17,'New England Patriots'],['NO',18,'New Orleans Saints'],['NYG',19,'New York Giants'],['NYJ',20,'New York Jets'],['PHI',21,'Philadelphia Eagles'],['PIT',23,'Pittsburgh Steelers'],['SEA',26,'Seattle Seahawks'],['SF',25,'San Francisco 49ers'],['TB',27,'Tampa Bay Buccaneers'],['TEN',10,'Tennessee Titans'],['WSH',28,'Washington Commanders']];
-function initLab(){}
-async function openLab(){initLab();$('#exploreModal').classList.add('open');await loadDepth(false);if(depthData)renderDepthMatrix(depthData);setTimeout(()=>$('#depthSearch')?.focus(),40)}
-document.querySelectorAll('.labTab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.labTab').forEach(x=>x.classList.toggle('on',x===b));$('#depthLab').style.display=b.dataset.lab==='depth'?'block':'none';$('#projLab').style.display=b.dataset.lab==='proj'?'block':'none'})
-function depthDrafted(p,sid){const espn=String(p.espn_id||''),nn=normName(p.full_name||[p.first_name,p.last_name].filter(Boolean).join(' '));if(espn&&draftedIds.has(espn))return true;const row=players.find(x=>(x.sleeperId&&String(x.sleeperId)===String(sid))||(espn&&String(x.id)===espn)||normName(x.name)===nn);return !!(row&&draftedIds.has(String(row.id)))}
-function depthPerson(p,sid,compact=false){const drafted=depthDrafted(p,sid),name=p.full_name||[p.first_name,p.last_name].filter(Boolean).join(' '),head=p.espn_id?`https://a.espncdn.com/i/headshots/nfl/players/full/${p.espn_id}.png`:`https://sleepercdn.com/content/nfl/players/${sid}.jpg`,tag=drafted?'<span class="depthDraftTag">DRAFTED</span>':'';if(compact)return `<div class="depthSlotPlayer ${drafted?'depthDrafted':''}"><img src="${head}" onerror="this.src='https://sleepercdn.com/content/nfl/players/${sid}.jpg'"><div><b>${name}${tag}</b><small>#${p.depth_chart_order||'—'} ${p.position||''}</small></div></div>`;return `<div class="depthMini ${drafted?'depthDrafted':''}"><span class="depthRank">${p.depth_chart_order||'—'}</span><img src="${head}" onerror="this.src='https://sleepercdn.com/content/nfl/players/${sid}.jpg'"><div><b>${name}${tag}</b><small>${p.position||''} · #${p.depth_chart_order||'—'}</small></div></div>`}
-function depthRows(map){const positions=['QB','RB','WR','TE'],q=normName($('#depthSearch')?.value||'');return DEPTH_TEAMS.map(([abbr,id,name])=>{let vals=Object.entries(map||{}).map(([sid,p])=>({...p,sid})).filter(p=>p.active!==false&&p.team===abbr&&positions.includes(p.position)&&p.depth_chart_order!=null);const teamMatch=!q||normName(`${name} ${abbr}`).includes(q),playerMatch=vals.some(p=>normName(p.full_name||[p.first_name,p.last_name].filter(Boolean).join(' ')).includes(q));if(q&&!teamMatch&&!playerMatch)return null;if(q&&!teamMatch)vals=vals.filter(p=>normName(p.full_name||[p.first_name,p.last_name].filter(Boolean).join(' ')).includes(q));return{abbr,id,name,vals}}).filter(Boolean)}
-function renderDepthMatrix(map){if(!map)return;document.querySelectorAll('[data-depth-mode]').forEach(b=>b.classList.toggle('on',b.dataset.depthMode===depthMode));const positions=['QB','RB','WR','TE'],rows=depthRows(map);if(depthMode==='slots'){const max={QB:3,RB:4,WR:5,TE:3},cols=positions.flatMap(pos=>Array.from({length:max[pos]},(_,i)=>({pos,n:i+1})));const body=rows.map(({abbr,name,vals})=>`<tr><td class="depthTeamCell"><div class="depthTeamName"><img src="https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png"><span>${name}<small style="display:block;color:var(--muted)">${abbr}</small></span></div></td>${cols.map(c=>{const p=vals.find(x=>x.position===c.pos&&num(x.depth_chart_order)===c.n);return `<td>${p?depthPerson(p,p.sid,true):'<small style="color:var(--muted)">—</small>'}</td>`}).join('')}</tr>`).join('');$('#depthResults').innerHTML=`<table class="depthMatrix depthSlotMatrix"><thead><tr><th class="depthTeamCell">TEAM</th>${cols.map(c=>`<th>${c.pos}${c.n}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`}else{const body=rows.map(({abbr,name,vals})=>{const cells=positions.map(pos=>{const ps=vals.filter(p=>p.position===pos).sort((a,b)=>num(a.depth_chart_order)-num(b.depth_chart_order)).slice(0,5);return `<td class="depthCell">${ps.length?ps.map(p=>depthPerson(p,p.sid)).join(''):'<small style="color:var(--muted)">No depth data</small>'}</td>`}).join('');return `<tr><td class="depthTeamCell"><div class="depthTeamName"><img src="https://a.espncdn.com/i/teamlogos/nfl/500/${abbr.toLowerCase()}.png"><span>${name}<small style="display:block;color:var(--muted)">${abbr}</small></span></div></td>${cells}</tr>`}).join('');$('#depthResults').innerHTML=`<table class="depthMatrix"><thead><tr><th>TEAM</th>${positions.map(p=>`<th>${p}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`}$('#depthStatus').textContent=`${rows.length} team${rows.length===1?'':'s'} shown · ${depthMode==='slots'?'each depth number is its own column':'players grouped inside position columns'} · drafted players gray`}
-async function loadDepth(force=false){const st=$('#depthStatus');st.textContent=force?'Refreshing all 32 team depth charts…':'Loading cached depth chart…';let hit=!force?await cacheGet('depth:2026'):null,map=hit?.value;if(!map){st.textContent='Downloading league-wide Sleeper player/depth directory…';calls++;const r=await fetch('https://api.sleeper.app/v1/players/nfl');if(!r.ok){st.textContent='Depth chart failed: Sleeper HTTP '+r.status;return false}map=await r.json();await cachePut('depth:2026',map)}depthData=map;renderDepthMatrix(map);if(players.length)applySleeperMeta(map,players);const age=hit?.ts?` • cached ${new Date(hit.ts).toLocaleString()}`:'';st.textContent=`All 32 teams • active status + top QB/RB/WR/TE depth slots${age}`;return true}
-
-async function loadProjections(){
- let y=2026,want=$('#projPos').value,st=$('#projStatus');st.textContent=`Loading ${y} ESPN projected stats…`;$('#projResults').innerHTML='';
- const filter={players:{filterSlotIds:{value:[0,2,4,6]},limit:1000,sortPercOwned:{sortPriority:1,sortAsc:false},filterStatsForTopScoringPeriodIds:{value:18,additionalValue:["002026","102026"]},filterRanksForScoringPeriodIds:{value:[1]}}};
- try{let data=await fetchJson(`${API}/seasons/${y}/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info`,filter),raw=data.players||[];
- let out=[];for(let e of raw){let p=e.player||e.playerPoolEntry?.player||e,pos=POS[num(p.defaultPositionId)];if(!pos||(want!=='ALL'&&pos!==want))continue;let arr=[...(p.stats||[]),...(e.playerPoolEntry?.stats||[])],pr=arr.find(x=>num(x.seasonId)===2026&&(num(x.statSourceId)===1||num(x.statTypeId)===1)&&num(x.statSplitTypeId)===0)||arr.find(x=>num(x.seasonId)===2026&&(num(x.statSourceId)===1||num(x.statTypeId)===1));if(!pr)continue;let x=pr.stats||{},r={id:String(p.id||e.id),name:p.fullName||p.displayName||'Unknown',pos,team:TEAM[num(pr.proTeamId||p.proTeamId)]||'—',passYds:num(x['3']),passTD:num(x['4']),ints:num(x['20']),rushYds:num(x['24']),rushTD:num(x['25']),rec:num(x['41']??x['53']),recYds:num(x['42']),recTD:num(x['43']),fum:num(x['72'])};r.yds=whole(r.passYds+r.rushYds+r.recYds);r.td=whole(r.passTD+r.rushTD+r.recTD);r.rec=whole(r.rec);r.fp=whole(fantasy({...r,lostFum:r.fum}));out.push(r)}
- out.sort((a,b)=>b.fp-a.fp);$('#projResults').innerHTML=out.length?`<div class="projGrid">${out.map(p=>`<article class="projCard"><div class="projHead"><img src="https://a.espncdn.com/i/headshots/nfl/players/full/${p.id}.png" onerror="this.style.visibility='hidden'"><div><b>${p.name}</b><small style="display:block;color:var(--muted)">${p.pos} · ${p.team} · ESPN projection · rounded</small></div></div><div class="projStats"><div><b>${Math.round(p.fp)}</b><small>PROJ FP</small></div><div><b>${fmt(p.yds)}</b><small>PROJ YDS</small></div><div><b>${fmt(p.td)}</b><small>PROJ TD</small></div><div><b>${fmt(p.rec)}</b><small>PROJ REC</small></div></div></article>`).join('')}</div>`:`<div class="empty"><b>No ESPN projection records returned</b>ESPN did not return statSourceId=1 records for this season/filter.</div>`;
- st.textContent=out.length?`${out.length} players with ESPN projected stat records (statSourceId = 1).`:`No projected records found for ${y}.`;
- }catch(e){st.textContent='Projection request failed: '+e.message}
-}
-
-function openDataLab(){ $('#dataLabModal').classList.add('open'); }
-function apiTestUrl(){
- const p=$('#apiPreset').value,arg=($('#apiArg').value||'').trim(),year=($('#apiYear').value||'2026').trim();
- if(p==='players')return 'https://api.sleeper.app/v1/players/nfl?active=true';
- if(p==='stats')return `https://api.sleeper.com/stats/nfl/${year}?season_type=regular`;
- if(p==='proj')return `https://api.sleeper.com/projections/nfl/${year}?season_type=regular`;
- if(p==='weekproj')return `https://api.sleeper.com/projections/nfl/${year}/${arg||1}?season_type=regular`;
- if(p==='depth')return `https://api.sleeper.com/players/nfl/${(arg||'PHI').toUpperCase()}/depth_chart`;
- if(p==='trending')return 'https://api.sleeper.app/v1/players/nfl/trending/add?lookback_hours=24&limit=25';
-}
-async function runApiTest(){
- const url=apiTestUrl();$('#apiTestStatus').textContent='Loading '+url;$('#apiOutput').textContent='Loading…';
- try{
-  const r=await fetch(url,{headers:{accept:'application/json'}}),t=await r.text();
-  if(!r.ok)throw Error(`${r.status} ${r.statusText}\n${t.slice(0,1000)}`);
-  let parsed;try{parsed=JSON.parse(t)}catch{parsed=t}
-  let preview=JSON.stringify(parsed,null,2);
-  $('#apiOutput').textContent=preview.length>18000?preview.slice(0,18000)+'\n\n… truncated …':preview;
-  const count=Array.isArray(parsed)?parsed.length:(parsed&&typeof parsed==='object'?Object.keys(parsed).length:'');
-  $('#apiTestStatus').textContent=`Success${count!==''?' • '+count+' top-level records':''} • ${url}`;
- }catch(e){$('#apiTestStatus').textContent='Request failed';$('#apiOutput').textContent=String(e)}
-}
-document.addEventListener('click',e=>{
- if(e.target.classList.contains('copyApi')){
-  const code=e.target.closest('.apiLine')?.querySelector('code')?.textContent||'';
-  navigator.clipboard?.writeText(code);e.target.textContent='Copied';setTimeout(()=>e.target.textContent='Copy',900);
- }
+window.addEventListener('load',()=>{
+  installDepthDraftFilters();
+  const root=document.querySelector('#depthResults');
+  if(root)new MutationObserver(()=>applyDepthDraftFilter()).observe(root,{childList:true,subtree:true});
+  document.querySelector('#exploreBtn')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,25));
+  document.querySelector('#runDepth')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,400));
+  document.querySelector('#depthSearch')?.addEventListener('input',()=>setTimeout(applyDepthDraftFilter,0));
+  document.querySelectorAll('#viewNav [data-view]').forEach(b=>b.addEventListener('click',()=>{
+    if(['overview','matrix','health'].includes(b.dataset.view))ensureHistoricalViews(false);
+  }));
+  setTimeout(()=>{
+    try{if(['overview','matrix','health'].includes(currentView))ensureHistoricalViews(false)}catch{}
+    applyDepthDraftFilter();
+  },300);
 });
-$('#dataLabBtn').onclick=openDataLab;
-$('#closeDataLab').onclick=()=>$('#dataLabModal').classList.remove('open');
-$('#dataLabModal').onclick=e=>{if(e.target.id==='dataLabModal')$('#dataLabModal').classList.remove('open')};
-$('#runApiTest').onclick=runApiTest;
-
-$('#exploreBtn').onclick=openLab;$('#closeExplore').onclick=()=>$('#exploreModal').classList.remove('open');$('#exploreModal').onclick=e=>{if(e.target.id==='exploreModal')$('#exploreModal').classList.remove('open')};$('#runDepth').onclick=()=>loadDepth(true);$('#runProj').onclick=loadProjections;$('#depthSearch').oninput=()=>depthData&&renderDepthMatrix(depthData);document.querySelectorAll('[data-depth-mode]').forEach(b=>b.onclick=()=>{depthMode=b.dataset.depthMode;localStorage.setItem('fantasyLensDepthMode',depthMode);depthData&&renderDepthMatrix(depthData)});
-
-$('#run').onclick=run;
-$('#settingsBtn').onclick=()=>$('#settingsModal').classList.add('open');$('#closeSettings').onclick=()=>$('#settingsModal').classList.remove('open');document.querySelectorAll('.score').forEach(x=>x.oninput=()=>{players.forEach(p=>p.fantasy=whole(fantasy(p)));finalizePlayers(players);render()});
-$('#compareBtn').onclick=showCompare;$('#closeCompare').onclick=()=>$('#compareModal').classList.remove('open');$('#search').oninput=render;$('#minPct').onchange=render;
-$('#hideInactive').checked=localStorage.getItem('fantasyLensHideInactive')!=='false';$('#hideDrafted').checked=localStorage.getItem('fantasyLensHideDrafted')==='true';$('#draftedOnly').checked=localStorage.getItem('fantasyLensDraftedOnly')==='true';$('#hideInactive').onchange=()=>{localStorage.setItem('fantasyLensHideInactive',$('#hideInactive').checked);render()};$('#hideDrafted').onchange=()=>{if($('#hideDrafted').checked){$('#draftedOnly').checked=false;localStorage.setItem('fantasyLensDraftedOnly','false')}localStorage.setItem('fantasyLensHideDrafted',$('#hideDrafted').checked);render()};$('#draftedOnly').onchange=()=>{if($('#draftedOnly').checked){$('#hideDrafted').checked=false;localStorage.setItem('fantasyLensHideDrafted','false')}localStorage.setItem('fantasyLensDraftedOnly',$('#draftedOnly').checked);render()};$('#resetDraft').onclick=resetDrafted;
-$('#viewNav').onclick=e=>{const b=e.target.closest('[data-view]');if(!b)return;currentView=b.dataset.view;localStorage.setItem('fantasyLensView',currentView);state.sort=currentView==='health'?'healthPct':'fantasy';state.dir=-1;render()};
-$('#matrixTools').onclick=e=>{const m=e.target.closest('[data-metric]');if(m){matrixMetric=m.dataset.metric;localStorage.setItem('fantasyLensMatrixMetric',matrixMetric);render()}};
-$('#teamFilterBtn').onclick=()=>$('#teamMenu').classList.toggle('open');$('#teamMenu').onclick=e=>{const b=e.target.closest('[data-team]');if(!b)return;state.team=b.dataset.team;$('#teamMenu').classList.remove('open');renderTeamMenu();render()};document.addEventListener('click',e=>{if(!e.target.closest('#teamSelect'))$('#teamMenu')?.classList.remove('open')});
-$('#importDraftBtn').onclick=()=>{$('#importDraftModal').classList.add('open');$('#draftImportCount').textContent=draftedIds.size+' currently drafted';setTimeout(()=>$('#draftImportText').focus(),50)};$('#closeImportDraft').onclick=()=>$('#importDraftModal').classList.remove('open');$('#importDraftModal').onclick=e=>{if(e.target.id==='importDraftModal')$('#importDraftModal').classList.remove('open')};$('#parseDraftBtn').onclick=applyDraftImport;$('#clearDraftImport').onclick=()=>{$('#draftImportText').value='';$('#draftImportStatus').textContent='Nothing parsed yet.'};const dz=$('#draftDropZone');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',async e=>{const f=e.dataTransfer.files?.[0];if(f){$('#draftImportText').value=await f.text()}else{$('#draftImportText').value=e.dataTransfer.getData('text/plain')||''}});
-$('#rawApiBtn').onclick=()=>{renderApiLog();$('#rawApiModal').classList.add('open')};$('#closeRawApi').onclick=()=>$('#rawApiModal').classList.remove('open');$('#rawApiModal').onclick=e=>{if(e.target.id==='rawApiModal')$('#rawApiModal').classList.remove('open')};
-$('#positions').onclick=e=>{if(!e.target.dataset.p)return;state.pos=e.target.dataset.p;document.querySelectorAll('#positions button').forEach(b=>b.classList.toggle('on',b.dataset.p===state.pos));render()};
-$('#closeCareer').onclick=()=>$('#careerModal').classList.remove('open');$('#careerModal').onclick=e=>{if(e.target.id==='careerModal')$('#careerModal').classList.remove('open')};
-renderTeamMenu();
-(async()=>{for(const y of [2018,2019,2020,2021,2022,2023,2024,2025,2026]){const hit=await cacheGet('season:'+y);if(hit?.value)seasonData[y]=hit.value}const dh=await cacheGet('depth:2026');if(dh?.value)depthData=dh.value;players=seasonData[2026]||[];if(players.length){players.forEach(p=>p.fantasy=whole(fantasy(p)));finalizePlayers(players);if(depthData)applySleeperMeta(depthData,players);renderTeamMenu();$('#empty').style.display='none';render();const needsHealth=players.filter(p=>p.pos==='QB'||p.pos==='RB'||p.pos==='WR'||p.pos==='TE').slice(0,40).some(p=>!Array.isArray(p.healthYears)||p.healthYears.length<5||p.healthYears.every(h=>num(h.gp)===0));if(needsHealth){$('#cacheState').textContent='Cache: repairing GP…';enrichHealth(2026).then(()=>cachePut('season:2026',players)).catch(()=>{})}}saveDrafted();const meta=await cacheGet('lastFullLoad');$('#cacheState').textContent=meta?.value?'Cache: '+new Date(meta.value.at).toLocaleString():'Cache: empty';$('#stamp').textContent=players.length?'2026 projections • historical cache ready':'Load Data before draft';})();
-
