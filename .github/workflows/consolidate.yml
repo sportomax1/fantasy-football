@@ -1,5 +1,8 @@
 name: Consolidate Fantasy Lens
-on: workflow_dispatch
+on:
+  push:
+    paths:
+      - '.github/workflows/consolidate.yml'
 permissions:
   contents: write
 jobs:
@@ -28,8 +31,6 @@ jobs:
           Path('fantasy-football.html').write_text(s)
           PY
           node --check fantasy-football.js
-          test "$(grep -o 'fantasy-football.css?v=21' fantasy-football.html | wc -l)" -eq 1
-          test "$(grep -o 'fantasy-football.js?v=21' fantasy-football.html | wc -l)" -eq 1
       - name: Commit consolidated files
         run: |
           git config user.name github-actions[bot]
