@@ -1,0 +1,39 @@
+name: Consolidate Fantasy Lens
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build three-file app from verified v20 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://raw.githubusercontent.com/sportomax1/internalapps/51a0d7512cf79799badafbe1c71cc312c8e66738/public"
+          curl -fsSL "$BASE/fantasy-football.html" -o /tmp/source.html
+          : > fantasy-football.css
+          for i in 1 2 3 4; do curl -fsSL "$BASE/fantasy-football-$i.css" >> fantasy-football.css; printf '\n' >> fantasy-football.css; done
+          : > fantasy-football.js
+          for i in 1 2 3 4 5 6 7 8; do curl -fsSL "$BASE/fantasy-football-$i.js" >> fantasy-football.js; printf '\n' >> fantasy-football.js; done
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          s=Path('/tmp/source.html').read_text()
+          s=re.sub(r'<link rel="stylesheet" href="/fantasy-football-[1-4]\.css\?v=20">','',s)
+          s=s.replace('</head>','<link rel="stylesheet" href="/fantasy-football.css?v=21"></head>')
+          s=re.sub(r'<script src="/fantasy-football-[1-8]\.js\?v=20"></script>','',s)
+          s=s.replace('</body>','<script src="/fantasy-football.js?v=21"></script></body>')
+          Path('fantasy-football.html').write_text(s)
+          PY
+          node --check fantasy-football.js
+          test "$(grep -o 'fantasy-football.css?v=21' fantasy-football.html | wc -l)" -eq 1
+          test "$(grep -o 'fantasy-football.js?v=21' fantasy-football.html | wc -l)" -eq 1
+      - name: Commit consolidated files
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add fantasy-football.html fantasy-football.css fantasy-football.js
+          git commit -m "Consolidate Fantasy Lens to three files" || exit 0
+          git push
