@@ -1,124 +1,176 @@
-/* Fantasy Lens v35 — rich league board, My Team, and split Draft Board / Best Available. */
-document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@dcbd931f6c78750dc7e7a47117b781a16d7148a5/fantasy-football.js"><\/script>');
+/* Fantasy Lens v36 — unified nav, visual polish, special-team media, matrix gradients, stable depth controls. */
+document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@8a20bc1b98e161bb444596b9138e50835601fa5c/fantasy-football.js"><\/script>');
 
 (function(){
-  const BOARD_KEY='fantasyLensLeagueDraftBoardV1';
-  const LEAGUE_KEY='fantasyLensLeagueSettingsV1';
-  const DRAFT_MODE_KEY='fantasyLensDraftMainModeV35';
+  const MATRIX_GRAD_KEY='fantasyLensMatrixGradientV36';
+  const DEPTH_FILTER_KEY='fantasyLensDepthDraftFilter';
   const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
-  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const readJson=(k,f)=>{try{const x=JSON.parse(localStorage.getItem(k)||'null');return x??f}catch{return f}};
-  const writeJson=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
   const teamCode=v=>{const t=String(v||'').toUpperCase().trim();return t==='WSH'?'WAS':t==='LA'?'LAR':t};
   const teamLogo=t=>`https://a.espncdn.com/i/teamlogos/nfl/500/${teamCode(t)==='WAS'?'wsh':teamCode(t).toLowerCase()}.png`;
-  const headshot=id=>id?`https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(id)}.png`:'';
-  let draftMode=localStorage.getItem(DRAFT_MODE_KEY)||'board',renderWrapped=false,importWrapped=false;
-
-  function settings(){return Object.assign({multiPosition:true,flex:['RB','WR','TE'],myTeam:''},readJson(LEAGUE_KEY,{}))}
-  function saveSettings(next){writeJson(LEAGUE_KEY,next);syncMainButtons();}
-  function board(){return readJson(BOARD_KEY,null)}
-  function allPlayers(){return typeof players!=='undefined'&&Array.isArray(players)?players:[]}
-  function findPlayer(pick){
-    if(pick?.playerId){const hit=allPlayers().find(p=>String(p.id)===String(pick.playerId));if(hit)return hit}
-    const n=norm(pick?.display||'');return n?allPlayers().find(p=>norm(p.name)===n):null;
-  }
-  function ownerMatch(name,b=board()){
-    const target=norm(name);if(!target||!b?.owners?.length)return'';
-    return b.owners.find(o=>norm(o)===target)||'';
-  }
+  const sleeperFace=id=>id?`https://sleepercdn.com/content/nfl/players/${encodeURIComponent(id)}.jpg`:'';
+  let renderWrapped=false,dirPromise=null,depthObserver=null,depthTimer=null,depthApplying=false;
 
   function addStyles(){
-    if(document.querySelector('#fantasyLensV35Styles'))return;
-    const s=document.createElement('style');s.id='fantasyLensV35Styles';s.textContent=`
-      #leagueDraftMainV35,#myTeamBtnV35{transition:opacity .15s,filter .15s}
-      #leagueDraftMainV35.navUnknownV35,#myTeamBtnV35.navUnknownV35{opacity:.38!important;filter:grayscale(1);cursor:not-allowed!important}
-      .draftModeTabsV35{display:flex;gap:5px;align-items:center;margin:1px 0 8px}.draftModeTabsV35 .on{background:var(--navy);color:#fff}.draftModeTabsV35 .webHint{margin-left:3px}
-      #leagueDraftMainModalV35,#myTeamModalV35{padding:0;background:#0b1721f2}#leagueDraftMainModalV35 .modalbox,#myTeamModalV35 .modalbox{width:100vw;max-width:none;height:100vh;max-height:100vh;margin:0;border-radius:0;display:flex;flex-direction:column;overflow:hidden}#leagueDraftMainModalV35 .careerbody,#myTeamModalV35 .careerbody{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
-      .leagueBoardToolbarV35{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.leagueBoardToolbarV35 .webHint{margin-left:auto}.leagueBoardWrapV35{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:11px;background:#fff}.leagueBoardV35{border-collapse:separate;border-spacing:0;min-width:max-content;width:100%;font-size:9px}.leagueBoardV35 th,.leagueBoardV35 td{min-width:180px;max-width:220px;padding:5px;border-right:1px solid #e8ece9;border-bottom:1px solid #e8ece9;vertical-align:top;text-align:left}.leagueBoardV35 th{position:sticky;top:0;z-index:4;background:#e9eeeb;color:var(--ink)}.leagueBoardV35 th:first-child,.leagueBoardV35 td:first-child{position:sticky;left:0;z-index:3;min-width:65px;width:65px;background:#f8f7f1;font-weight:900}.leagueBoardV35 th:first-child{z-index:6;background:#e9eeeb}.leagueOwnerMineV35{box-shadow:inset 0 -3px 0 var(--cyan);font-weight:950!important}
-      .leaguePickV35{border-radius:9px;padding:5px;color:#fff;min-height:50px;display:grid;grid-template-columns:34px minmax(0,1fr) 22px;gap:5px;align-items:center;box-shadow:inset 0 0 0 1px #0001}.leaguePickV35.QB{background:#5967b0}.leaguePickV35.RB{background:#23845f}.leaguePickV35.WR{background:#c46a2b}.leaguePickV35.TE{background:#177f91}.leaguePickV35.K{background:#9a7915}.leaguePickV35.DEF{background:#a64141}.leaguePickV35.OTHER{background:#687684}.leaguePickFaceV35{width:34px;height:34px;border-radius:9px;object-fit:cover;background:#ffffff22}.leaguePickLogoV35{width:21px;height:21px;object-fit:contain;justify-self:end}.leaguePickTextV35{min-width:0}.leaguePickNameV35{display:block;border:0;background:none;color:#fff;padding:0;text-align:left;font:inherit;font-weight:950;font-size:9px;line-height:1.1;cursor:default;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.leaguePickNameV35.clickableV35{cursor:pointer;text-decoration:underline;text-decoration-color:#ffffff66;text-underline-offset:2px}.leaguePickTextV35 small{display:block;font-size:7px;opacity:.9;margin-top:3px}.leagueLegendV35{padding:3px 6px;border-radius:6px;color:#fff;font-size:8px;font-weight:900}
-      .myTeamGridV35{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:7px;padding:2px}.myTeamCardV35{display:grid;grid-template-columns:48px minmax(0,1fr) 30px;gap:8px;align-items:center;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px}.myTeamCardV35.QB{border-left:5px solid #5967b0}.myTeamCardV35.RB{border-left:5px solid #23845f}.myTeamCardV35.WR{border-left:5px solid #c46a2b}.myTeamCardV35.TE{border-left:5px solid #177f91}.myTeamCardV35.K{border-left:5px solid #9a7915}.myTeamCardV35.DEF{border-left:5px solid #a64141}.myTeamCardV35 .leaguePickFaceV35{width:48px;height:48px}.myTeamCardV35 .leaguePickLogoV35{width:28px;height:28px}.myTeamCardV35 b{display:block;font-size:11px}.myTeamCardV35 small{display:block;color:var(--muted);font-size:8px;margin-top:3px}.myTeamCardV35 button{border:0;background:none;padding:0;text-align:left;color:inherit;cursor:pointer;font:inherit}
-      .myTeamSettingV35{margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}.myTeamSettingV35 label{display:flex;gap:7px;align-items:center;font-size:9px}.myTeamSettingV35 input{min-width:220px;max-width:360px}
-      .bestAvailWhoV33.richV35{display:grid!important;grid-template-columns:30px minmax(0,1fr)!important;gap:5px!important;align-items:center!important}.bestAvailMediaV35{position:relative;width:30px;height:30px}.bestAvailMediaV35 .faceV35{width:30px;height:30px;border-radius:8px;object-fit:cover;background:#edf0ed}.bestAvailMediaV35 .logoV35{position:absolute;right:-2px;bottom:-2px;width:13px;height:13px;object-fit:contain;background:#fff;border-radius:50%;padding:1px}.bestAvailTextV35{min-width:0}
-      @media(max-width:700px){.leagueBoardV35 th,.leagueBoardV35 td{min-width:160px}.draftModeTabsV35{overflow:auto}.myTeamSettingV35 label{display:block}.myTeamSettingV35 input{width:100%;min-width:0;margin-top:5px}}
+    if(document.querySelector('#fantasyLensV36Styles'))return;
+    const s=document.createElement('style');s.id='fantasyLensV36Styles';s.textContent=`
+      body,.field,.btn,input,select,textarea,button,table{font-family:"Segoe UI Variable","Aptos","Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,sans-serif!important}
+      body{letter-spacing:-.006em}.btn{font-weight:700!important}.viewNav .btn{font-weight:750!important;letter-spacing:-.012em}.appTitle b,h1,h2,h3,b,strong,.name{font-weight:750!important}.webHint,small,.cacheState{letter-spacing:0!important}
+      #draftModeTabsV35{display:none!important}
+      #bestAvailableMainV36.on{background:var(--navy)!important;color:#fff!important}
+      .specialFaceV36{width:34px!important;height:34px!important;border-radius:9px!important;object-fit:cover!important;background:#edf0ed!important;flex:0 0 auto}
+      #kickerTable .kickerPrimary{display:flex!important;align-items:center!important;gap:7px!important}
+      #kickerTable .kickerPrimary>img:first-child{width:24px!important;height:24px!important;object-fit:contain!important;flex:0 0 auto}
+      #defenseHistoryTable .defTeam>img:first-child{display:block!important;visibility:visible!important;width:27px!important;height:27px!important;object-fit:contain!important}
+      .bestAvailMediaV35 .dstMainLogoV36{width:29px!important;height:29px!important;object-fit:contain!important;background:transparent!important;border-radius:0!important}
+      .bestAvailMediaV35 .kickerFaceV36{width:30px!important;height:30px!important;border-radius:8px!important;object-fit:cover!important;background:#edf0ed!important}
+      .matrixGradientBtnV36.on{background:var(--navy)!important;color:#fff!important}.matrixGradV36{transition:background-color .12s ease,box-shadow .12s ease}.matrixGradV36 b{color:inherit!important}
+      #depthDraftFilters .depthDraftFilter.on{background:var(--navy)!important;color:#fff!important}.depthDraftToggleV36{margin-left:auto!important;padding:3px 5px!important;font-size:7px!important;line-height:1!important;flex:0 0 auto}.depthDraftToggleV36.on{background:#687684!important;color:#fff!important}.depthDraftedV36{opacity:.42!important;filter:grayscale(1)}.depthDraftedV36 b{text-decoration:none!important}.depthMini,.depthSlotPlayer{gap:6px!important}.depthToolbar{align-items:center!important;flex-wrap:wrap!important}.depthToolbar #depthSearch{min-width:220px!important}.depthFilterSummaryV36{font-size:8px;color:var(--muted);margin-left:auto}
+      @media(max-width:900px){.viewNav{gap:4px}.viewNav .btn{font-size:9px!important}.depthToolbar #depthSearch{min-width:150px!important;width:100%!important}}
     `;document.head.appendChild(s);
   }
 
-  function mainNav(){return document.querySelector('#viewNav')}
-  function installMainButtons(){
-    const nav=mainNav(),draft=nav?.querySelector('[data-view="draft"]');if(!nav||!draft)return;
-    let league=document.querySelector('#leagueDraftMainV35');if(!league){league=document.createElement('button');league.className='btn';league.id='leagueDraftMainV35';league.textContent='League Draft';draft.insertAdjacentElement('afterend',league)}
-    let mine=document.querySelector('#myTeamBtnV35');if(!mine){mine=document.createElement('button');mine.className='btn';mine.id='myTeamBtnV35';mine.textContent='My Team';league.insertAdjacentElement('afterend',mine)}
-    league.onclick=()=>{if(!league.disabled)openLeagueDraft()};mine.onclick=()=>{if(!mine.disabled)openMyTeam()};syncMainButtons();
-  }
-  function syncMainButtons(){
-    const b=board(),cfg=settings(),league=document.querySelector('#leagueDraftMainV35'),mine=document.querySelector('#myTeamBtnV35'),known=!!(b?.picks?.length&&b?.owners?.length),myOwner=ownerMatch(cfg.myTeam,b);
-    if(league){league.disabled=!known;league.classList.toggle('navUnknownV35',!known);league.title=known?`${b.picks.length} owner-tagged picks detected`:'Import owner-tagged draft results to enable'}
-    if(mine){const ready=known&&!!myOwner;mine.disabled=!ready;mine.classList.toggle('navUnknownV35',!ready);mine.textContent=myOwner?'My Team':'My Team';mine.title=!known?'Import draft results first':!cfg.myTeam?'Declare your fantasy team in Scoring → League Settings':!myOwner?`Declared team “${cfg.myTeam}” was not found in the imported owners`:`Open ${myOwner}`}
+  function getDirectory(){
+    if(dirPromise)return dirPromise;
+    dirPromise=(async()=>{
+      try{
+        if(typeof loadSleeperDirectory==='function')return await loadSleeperDirectory(false);
+        const r=await fetch('https://api.sleeper.app/v1/players/nfl');return r.ok?await r.json():{};
+      }catch(e){console.warn('player directory unavailable',e);return{}}
+    })();
+    return dirPromise;
   }
 
-  function ensureDraftModeTabs(){
-    const nav=mainNav();if(!nav)return;let box=document.querySelector('#draftModeTabsV35');if(!box){box=document.createElement('div');box.id='draftModeTabsV35';box.className='draftModeTabsV35';box.innerHTML='<button class="btn" data-draft-mode="board">Draft Board</button><button class="btn" data-draft-mode="best">Best Available</button><span class="webHint">Separate board list from Top-10-by-position view</span>';nav.insertAdjacentElement('afterend',box);box.querySelectorAll('[data-draft-mode]').forEach(b=>b.onclick=()=>{draftMode=b.dataset.draftMode;localStorage.setItem(DRAFT_MODE_KEY,draftMode);syncDraftMode()})}
-    syncDraftMode();
-  }
-  function syncDraftMode(){
-    const box=document.querySelector('#draftModeTabsV35'),isDraft=typeof currentView==='undefined'||currentView==='draft';if(box)box.style.display=isDraft?'flex':'none';if(!isDraft)return;
-    box?.querySelectorAll('[data-draft-mode]').forEach(b=>b.classList.toggle('on',b.dataset.draftMode===draftMode));
-    const best=document.querySelector('#bestStrip'),table=document.querySelector('#tablewrap'),cards=document.querySelector('#cards'),status=document.querySelector('.status'),empty=document.querySelector('#empty');
-    if(best)best.style.display=draftMode==='best'?'block':'none';if(table)table.style.display=draftMode==='best'?'none':'';if(cards)cards.style.display=draftMode==='best'?'none':'';if(status)status.style.display=draftMode==='best'?'none':'';if(empty)empty.style.display=draftMode==='best'?'none':'';
-    if(draftMode==='best')decorateBestAvailable();
+  function setNavLabels(){
+    const nav=document.querySelector('#viewNav');if(!nav)return;
+    const labels={draft:'📋 Draft Board',overview:'👀 Overview',matrix:'📊 Year Matrix',health:'🩺 Health',weekly:'📅 Weekly Matchups'};
+    nav.querySelectorAll('[data-view]').forEach(b=>{if(labels[b.dataset.view])b.textContent=labels[b.dataset.view]});
+    const depth=document.querySelector('#exploreBtn'),def=document.querySelector('#defenseBtn'),kick=document.querySelector('#kickerBtn'),league=document.querySelector('#leagueDraftMainV35'),mine=document.querySelector('#myTeamBtnV35');
+    if(depth)depth.textContent='🪜 Depth';if(def)def.textContent='🛡️ Defense';if(kick)kick.textContent='🥾 Kicker';if(league)league.textContent='🏆 League Draft';if(mine)mine.textContent='👤 My Team';
   }
 
-  function pickHtml(p){
-    if(!p)return'';const player=findPlayer(p),clickable=!!(player&&typeof career==='function'),pid=player?.id||p.playerId||'',face=pid?headshot(pid):'',logo=teamLogo(p.nflTeam),pos=['QB','RB','WR','TE','K','DEF'].includes(p.pos)?p.pos:'OTHER';
-    return `<div class="leaguePickV35 ${pos}">${face?`<img class="leaguePickFaceV35" src="${face}" onerror="this.style.visibility='hidden'">`:'<div class="leaguePickFaceV35"></div>'}<div class="leaguePickTextV35"><button class="leaguePickNameV35 ${clickable?'clickableV35':''}" ${clickable?`data-profile-id="${esc(pid)}"`:''}>${esc(p.display)}</button><small>${esc(p.nflTeam)} · ${p.pos==='DEF'?'D/ST':esc(p.pos)}${p.slot!=null?' · pick '+p.slot:''}</small></div><img class="leaguePickLogoV35" src="${logo}" onerror="this.style.visibility='hidden'"></div>`;
+  function draftModeButton(mode){return document.querySelector(`#draftModeTabsV35 [data-draft-mode="${mode}"]`)}
+  function setDraftMode(mode){const b=draftModeButton(mode);if(b)b.click();else{try{localStorage.setItem('fantasyLensDraftMainModeV35',mode)}catch{}}setTimeout(syncNavState,0)}
+  function ensureMainBestTab(){
+    const nav=document.querySelector('#viewNav'),draft=nav?.querySelector('[data-view="draft"]');if(!nav||!draft)return;
+    let best=document.querySelector('#bestAvailableMainV36');if(!best){best=document.createElement('button');best.className='btn';best.id='bestAvailableMainV36';best.type='button';draft.insertAdjacentElement('afterend',best)}
+    best.textContent='⭐ Best Available';
+    best.onclick=()=>{
+      if(typeof currentView!=='undefined'&&currentView!=='draft'){
+        currentView='draft';localStorage.setItem('fantasyLensView','draft');
+        if(typeof state!=='undefined'){state.sort='fantasy';state.dir=-1}
+        if(typeof render==='function')render();
+      }
+      setDraftMode('best');
+    };
+    if(!draft.dataset.v36Mode){draft.dataset.v36Mode='1';draft.addEventListener('click',()=>setTimeout(()=>setDraftMode('board'),0))}
+    const hidden=document.querySelector('#draftModeTabsV35');if(hidden)hidden.style.display='none';
+    setNavLabels();syncNavState();
   }
-  function bindProfiles(root){root?.querySelectorAll('[data-profile-id]').forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.profileId;if(id&&typeof career==='function')career(id)})}
-
-  function ensureLeagueModal(){
-    let m=document.querySelector('#leagueDraftMainModalV35');if(m)return m;m=document.createElement('div');m.className='modal';m.id='leagueDraftMainModalV35';m.innerHTML=`<div class="modalbox"><div class="modalhead"><div><h2>League Draft Board</h2><small style="color:#aebdca">Imported fantasy-team ownership · position coded</small></div><button class="btn close" id="closeLeagueDraftMainV35">×</button></div><div class="careerbody"><div class="leagueBoardToolbarV35"><div><span class="leagueLegendV35" style="background:#5967b0">QB</span> <span class="leagueLegendV35" style="background:#23845f">RB</span> <span class="leagueLegendV35" style="background:#c46a2b">WR</span> <span class="leagueLegendV35" style="background:#177f91">TE</span> <span class="leagueLegendV35" style="background:#9a7915">K</span> <span class="leagueLegendV35" style="background:#a64141">D/ST</span></div><span class="webHint" id="leagueDraftMainStatusV35"></span></div><div class="leagueBoardWrapV35" id="leagueDraftMainWrapV35"></div></div></div>`;document.body.appendChild(m);document.querySelector('#closeLeagueDraftMainV35').onclick=()=>m.classList.remove('open');m.onclick=e=>{if(e.target===m)m.classList.remove('open')};return m;
-  }
-  function renderLeagueDraft(){
-    const b=board(),root=document.querySelector('#leagueDraftMainWrapV35'),status=document.querySelector('#leagueDraftMainStatusV35');if(!root)return;if(!b?.picks?.length||!b?.owners?.length){root.innerHTML='<div class="leagueBoardEmpty">No owner-tagged draft results are available.</div>';if(status)status.textContent='No ownership data';return}
-    const my=ownerMatch(settings().myTeam,b),rounds=[...new Set(b.picks.map(p=>Number(p.round)||1))].sort((a,b)=>a-b),by=new Map();for(const p of b.picks)by.set(`${Number(p.round)||1}|${p.owner}`,p);
-    root.innerHTML=`<table class="leagueBoardV35"><thead><tr><th>Round</th>${b.owners.map(o=>`<th class="${o===my?'leagueOwnerMineV35':''}">${o===my?'★ ':''}${esc(o)}</th>`).join('')}</tr></thead><tbody>${rounds.map(r=>`<tr><td>R${r}</td>${b.owners.map(o=>`<td>${pickHtml(by.get(`${r}|${o}`))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;bindProfiles(root);if(status)status.textContent=`${b.picks.length} picks · ${b.owners.length} fantasy teams${my?' · ★ '+my:''}`;
-  }
-  function openLeagueDraft(){const m=ensureLeagueModal();renderLeagueDraft();m.classList.add('open')}
-
-  function ensureMyTeamModal(){
-    let m=document.querySelector('#myTeamModalV35');if(m)return m;m=document.createElement('div');m.className='modal';m.id='myTeamModalV35';m.innerHTML=`<div class="modalbox"><div class="modalhead"><div><h2 id="myTeamTitleV35">My Team</h2><small style="color:#aebdca">Roster reconstructed from imported draft results</small></div><button class="btn close" id="closeMyTeamV35">×</button></div><div class="careerbody"><div class="careerstatus" id="myTeamStatusV35"></div><div class="myTeamGridV35" id="myTeamGridV35"></div></div></div>`;document.body.appendChild(m);document.querySelector('#closeMyTeamV35').onclick=()=>m.classList.remove('open');m.onclick=e=>{if(e.target===m)m.classList.remove('open')};return m;
-  }
-  function renderMyTeam(){
-    const b=board(),cfg=settings(),owner=ownerMatch(cfg.myTeam,b),root=document.querySelector('#myTeamGridV35'),status=document.querySelector('#myTeamStatusV35'),title=document.querySelector('#myTeamTitleV35');if(!root)return;if(title)title.textContent=owner?`My Team — ${owner}`:'My Team';
-    if(!owner){root.innerHTML='<div class="leagueBoardEmpty">Declare your fantasy team name in Scoring → League Settings after importing draft results.</div>';if(status)status.textContent='No matching team declared';return}
-    const picks=b.picks.filter(p=>p.owner===owner).sort((a,b)=>(Number(a.round)||99)-(Number(b.round)||99)||(Number(a.slot)||99)-(Number(b.slot)||99));root.innerHTML=picks.map(p=>{const player=findPlayer(p),pid=player?.id||p.playerId||'',face=pid?headshot(pid):'',clickable=!!(pid&&typeof career==='function'),pos=['QB','RB','WR','TE','K','DEF'].includes(p.pos)?p.pos:'OTHER';return `<article class="myTeamCardV35 ${pos}">${face?`<img class="leaguePickFaceV35" src="${face}" onerror="this.style.visibility='hidden'">`:'<div class="leaguePickFaceV35"></div>'}<div>${clickable?`<button data-profile-id="${esc(pid)}"><b>${esc(p.display)}</b></button>`:`<b>${esc(p.display)}</b>`}<small>Round ${p.round||'—'}${p.slot!=null?' · pick '+p.slot:''} · ${p.pos==='DEF'?'D/ST':esc(p.pos)} · ${esc(p.nflTeam)}</small></div><img class="leaguePickLogoV35" src="${teamLogo(p.nflTeam)}" onerror="this.style.visibility='hidden'"></article>`}).join('')||'<div class="leagueBoardEmpty">No picks found for this team.</div>';bindProfiles(root);if(status)status.textContent=`${picks.length} drafted roster slot${picks.length===1?'':'s'} detected`;
-  }
-  function openMyTeam(){const m=ensureMyTeamModal();renderMyTeam();m.classList.add('open')}
-
-  function injectMyTeamSetting(){
-    const box=document.querySelector('#leagueSettingsV34');if(!box)return;let sec=document.querySelector('#myTeamSettingV35');if(sec)sec.remove();const b=board(),cfg=settings();sec=document.createElement('div');sec.id='myTeamSettingV35';sec.className='myTeamSettingV35';sec.innerHTML=`<label><b>My fantasy team:</b><input class="field" id="myTeamNameV35" list="myTeamOwnersV35" placeholder="Choose / type imported team name" value="${esc(cfg.myTeam||'')}"><datalist id="myTeamOwnersV35">${(b?.owners||[]).map(o=>`<option value="${esc(o)}"></option>`).join('')}</datalist></label><div class="webHint" style="margin-top:5px">Used by the My Team button and ★ highlight on the League Draft board.</div>`;box.appendChild(sec);const input=document.querySelector('#myTeamNameV35');input.onchange=input.onblur=()=>{const n=settings();n.myTeam=input.value.trim();saveSettings(n);renderLeagueDraft();renderMyTeam()};
-  }
-  function wrapSettings(){const b=document.querySelector('#settingsBtn');if(!b||b.dataset.v35Settings==='1')return;b.dataset.v35Settings='1';const old=b.onclick;b.onclick=function(e){const out=old?.call(this,e);setTimeout(injectMyTeamSetting,0);setTimeout(injectMyTeamSetting,120);return out};setTimeout(injectMyTeamSetting,0)}
-
-  function wrapImport(){
-    const b=document.querySelector('#parseDraftBtn');if(!b||b.dataset.v35Import==='1')return;b.dataset.v35Import='1';const old=b.onclick;b.onclick=async function(e){const out=old?.call(this,e);try{await Promise.resolve(out)}finally{setTimeout(()=>{syncMainButtons();injectMyTeamSetting()},30)}return out};importWrapped=true;
+  function syncNavState(){
+    const best=document.querySelector('#bestAvailableMainV36'),draft=document.querySelector('#viewNav [data-view="draft"]'),isDraft=typeof currentView==='undefined'||currentView==='draft',mode=localStorage.getItem('fantasyLensDraftMainModeV35')||'board';
+    if(best)best.classList.toggle('on',isDraft&&mode==='best');
+    if(draft)draft.classList.toggle('on',isDraft&&mode!=='best');
+    if(!isDraft&&best)best.classList.remove('on');
   }
 
-  function decorateBestAvailable(){
-    const root=document.querySelector('#bestStrip');if(!root)return;root.querySelectorAll('.bestAvailWhoV33').forEach(who=>{
-      if(who.classList.contains('richV35'))return;const b=who.querySelector('b'),small=who.querySelector('small');if(!b||!small)return;const p=allPlayers().find(x=>norm(x.name)===norm(b.textContent)),team=teamCode((small.textContent.match(/^([A-Z]{2,3})\b/)||[])[1]||p?.team||'');
-      const text=document.createElement('div');text.className='bestAvailTextV35';text.appendChild(b);text.appendChild(small);const media=document.createElement('span');media.className='bestAvailMediaV35';media.innerHTML=`${p?`<img class="faceV35" src="${headshot(p.id)}" onerror="this.style.visibility='hidden'">`:'<span class="faceV35"></span>'}${team?`<img class="logoV35" src="${teamLogo(team)}" onerror="this.style.visibility='hidden'">`:''}`;who.innerHTML='';who.appendChild(media);who.appendChild(text);who.classList.add('richV35');
+  async function decorateSpecialMedia(){
+    const dir=await getDirectory(),byName=new Map();
+    for(const [id,p] of Object.entries(dir||{})){
+      const full=p?.full_name||[p?.first_name,p?.last_name].filter(Boolean).join(' ');if(full)byName.set(norm(full),{id,p});
+    }
+    document.querySelectorAll('#kickerTable tbody tr').forEach(tr=>{
+      const cell=tr.querySelector('.kickerPrimary');if(!cell)return;cell.querySelectorAll('.specialFaceV36').forEach(x=>x.remove());
+      const name=cell.querySelector('small')?.textContent||'',hit=byName.get(norm(name));if(!hit)return;
+      const img=document.createElement('img');img.className='specialFaceV36';img.alt='';img.src=sleeperFace(hit.id);img.onerror=()=>img.style.display='none';const teamImg=cell.querySelector(':scope > img');if(teamImg)teamImg.insertAdjacentElement('afterend',img);else cell.prepend(img);
     });
-    syncDraftMode();
+    document.querySelectorAll('#defenseHistoryTable tbody tr').forEach(tr=>{
+      const cell=tr.querySelector('.defTeam');if(!cell)return;const txt=cell.querySelector(':scope > span')?.textContent||'',team=teamCode(txt);if(!team)return;let img=cell.querySelector(':scope > img');if(!img){img=document.createElement('img');cell.prepend(img)}img.src=teamLogo(team);img.style.display='';img.style.visibility='visible';img.onerror=()=>img.style.visibility='hidden';
+    });
+    document.querySelectorAll('#bestStrip .bestAvailColV33').forEach(col=>{
+      const title=col.querySelector('.bestAvailTitleV33')?.textContent.trim().toUpperCase();
+      col.querySelectorAll('.bestAvailWhoV33').forEach(who=>{
+        const media=who.querySelector('.bestAvailMediaV35'),name=who.querySelector('b')?.textContent.trim()||'',small=who.querySelector('small')?.textContent||'';if(!media)return;
+        if(title==='D/ST'){
+          const team=teamCode((name.match(/^([A-Z]{2,3})\b/)||[])[1]||'');if(!team)return;media.innerHTML=`<img class="dstMainLogoV36" src="${teamLogo(team)}" alt="" onerror="this.style.visibility='hidden'">`;
+        }else if(title==='K'){
+          const hit=byName.get(norm(name));if(!hit)return;const team=teamCode(hit.p?.team||(small.match(/^([A-Z]{2,3})\b/)||[])[1]||'');media.innerHTML=`<img class="kickerFaceV36" src="${sleeperFace(hit.id)}" alt="" onerror="this.style.visibility='hidden'">${team?`<img class="logoV35" src="${teamLogo(team)}" alt="" onerror="this.style.visibility='hidden'">`:''}`;
+        }
+      });
+    });
+  }
+
+  function matrixGradientEnabled(){return localStorage.getItem(MATRIX_GRAD_KEY)!=='off'}
+  function ensureMatrixGradient(){
+    const tools=document.querySelector('#matrixTools');if(!tools||typeof currentView!=='undefined'&&currentView!=='matrix')return;
+    let b=tools.querySelector('.matrixGradientBtnV36');if(!b){b=document.createElement('button');b.className='btn matrixGradientBtnV36';b.type='button';b.onclick=()=>{localStorage.setItem(MATRIX_GRAD_KEY,matrixGradientEnabled()?'off':'on');ensureMatrixGradient();applyMatrixGradient()};tools.appendChild(b)}
+    b.textContent='🎨 Gradients';b.classList.toggle('on',matrixGradientEnabled());b.title='Color numeric Year Matrix cells from weaker to stronger within each stat row';
+  }
+  function parseCellNum(td){const t=String(td?.textContent||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);return t?Number(t[0]):null}
+  function colorCells(cells,invert){
+    const vals=cells.map(parseCellNum),good=vals.filter(Number.isFinite);if(!good.length)return;const min=Math.min(...good),max=Math.max(...good),den=max-min||1;
+    cells.forEach((td,i)=>{const v=vals[i];if(!Number.isFinite(v))return;let q=(v-min)/den;if(invert)q=1-q;const hue=Math.round(q*120);td.classList.add('matrixGradV36');td.style.backgroundColor=`hsl(${hue} 65% 91%)`;td.style.boxShadow=`inset 0 -2px 0 hsl(${hue} 58% 48% / .45)`});
+  }
+  function clearMatrixGradient(){document.querySelectorAll('.matrixGradV36').forEach(td=>{td.classList.remove('matrixGradV36');td.style.backgroundColor='';td.style.boxShadow=''})}
+  function applyMatrixGradient(){
+    clearMatrixGradient();if(!matrixGradientEnabled()||typeof currentView!=='undefined'&&currentView!=='matrix')return;
+    const table=document.querySelector('.matrixTable');if(!table)return;const active=document.querySelector('#matrixTools .matrixMetric.on')?.dataset.metric||'';
+    table.querySelectorAll('tbody tr').forEach(tr=>{
+      const cells=[...tr.querySelectorAll(':scope > td')],label=tr.querySelector('.matrixMetricLabel');let targets=[],metric=active;
+      if(label){metric=norm(label.textContent);const idx=cells.indexOf(label),after=cells.slice(idx+1);targets=[...after.slice(0,6),after.at(-1)].filter(Boolean)}
+      else targets=[...cells.slice(1,7),cells.at(-1)].filter(Boolean);
+      const invert=metric==='turnovers'||metric==='to';colorCells(targets,invert);
+    });
+  }
+
+  function playerForDepthCard(card){
+    const b=card.querySelector('b');if(!b||typeof players==='undefined')return null;const name=norm(b.textContent.replace(/drafted/ig,''));if(!name)return null;return players.find(p=>norm(p.name)===name)||null;
+  }
+  function depthFilter(){return localStorage.getItem(DEPTH_FILTER_KEY)||'all'}
+  function bindDepthFilterBox(){
+    let box=document.querySelector('#depthDraftFilters'),bar=document.querySelector('.depthToolbar'),search=document.querySelector('#depthSearch');if(!bar)return;
+    if(box&&!box.dataset.v36){const fresh=box.cloneNode(true);box.replaceWith(fresh);box=fresh}
+    if(!box){box=document.createElement('span');box.id='depthDraftFilters';box.innerHTML='<button class="btn depthDraftFilter" data-df="all">All</button><button class="btn depthDraftFilter" data-df="available">Available</button><button class="btn depthDraftFilter" data-df="drafted">Drafted</button>';bar.insertBefore(box,search||null)}
+    box.dataset.v36='1';box.querySelectorAll('[data-df]').forEach(b=>{b.classList.toggle('on',b.dataset.df===depthFilter());b.onclick=()=>{localStorage.setItem(DEPTH_FILTER_KEY,b.dataset.df);scheduleDepth(0)}});
+    let summary=bar.querySelector('.depthFilterSummaryV36');if(!summary){summary=document.createElement('span');summary.className='depthFilterSummaryV36';bar.appendChild(summary)}
+  }
+  function observeDepth(root){
+    depthObserver?.disconnect();depthObserver=new MutationObserver(()=>scheduleDepth(35));depthObserver.observe(root,{childList:true,subtree:true});
+  }
+  function stabilizeDepthRoot(){
+    let root=document.querySelector('#depthResults');if(!root)return null;
+    if(!root.dataset.v36Stable){const clone=root.cloneNode(true);clone.dataset.v36Stable='1';root.replaceWith(clone);root=clone}
+    observeDepth(root);bindDepthFilterBox();return root;
+  }
+  function scheduleDepth(ms=20){clearTimeout(depthTimer);depthTimer=setTimeout(applyDepthStable,ms)}
+  function applyDepthStable(){
+    if(depthApplying)return;depthApplying=true;let root=document.querySelector('#depthResults');if(!root){depthApplying=false;return}if(!root.dataset.v36Stable)root=stabilizeDepthRoot();depthObserver?.disconnect();bindDepthFilterBox();const filter=depthFilter();let total=0,shown=0;
+    root.querySelectorAll('.depthMini,.depthSlotPlayer').forEach(card=>{
+      total++;card.querySelectorAll('.depthDraftToggleV33,.depthDraftToggleV36,.depthDraftTag').forEach(x=>x.remove());const p=playerForDepthCard(card),drafted=!!(p&&draftedIds.has(String(p.id)));card.classList.remove('depthDraftedV33');card.classList.toggle('depthDraftedV36',drafted);
+      const visible=filter==='all'||(filter==='drafted'&&drafted)||(filter==='available'&&!drafted);card.style.display=visible?'':'none';if(visible)shown++;
+      if(p){const b=document.createElement('button');b.type='button';b.className='btn depthDraftToggleV36'+(drafted?' on':'');b.textContent=drafted?'Drafted':'Draft';b.onclick=e=>{e.stopPropagation();if(typeof toggleDraft==='function')toggleDraft(String(p.id));scheduleDepth(0)};card.appendChild(b)}
+    });
+    root.querySelectorAll('tr').forEach(tr=>{const cards=[...tr.querySelectorAll('.depthMini,.depthSlotPlayer')];if(cards.length&&filter!=='all')tr.style.display=cards.some(c=>c.style.display!=='none')?'':'none';else tr.style.display=''});
+    document.querySelectorAll('#depthDraftFilters [data-df]').forEach(b=>b.classList.toggle('on',b.dataset.df===filter));const summary=document.querySelector('.depthFilterSummaryV36');if(summary)summary.textContent=`${shown}/${total} players shown`;
+    depthApplying=false;observeDepth(root);
+  }
+  function installDepthAudit(){
+    const run=document.querySelector('#runDepth'),open=document.querySelector('#exploreBtn'),search=document.querySelector('#depthSearch');
+    if(open&&!open.dataset.v36Depth){open.dataset.v36Depth='1';open.addEventListener('click',()=>scheduleDepth(220))}
+    if(run&&!run.dataset.v36Depth){run.dataset.v36Depth='1';run.addEventListener('click',()=>scheduleDepth(650))}
+    if(search&&!search.dataset.v36Depth){search.dataset.v36Depth='1';search.addEventListener('input',()=>scheduleDepth(35))}
+    stabilizeDepthRoot();scheduleDepth(0);
   }
 
   function wrapRender(){
-    if(renderWrapped||typeof window.render!=='function')return;const old=window.render;window.render=function(){const out=old.apply(this,arguments);setTimeout(()=>{ensureDraftModeTabs();decorateBestAvailable();syncMainButtons()},0);return out};renderWrapped=true;
+    if(renderWrapped||typeof window.render!=='function')return;const old=window.render;window.render=function(){const out=old.apply(this,arguments);setTimeout(()=>{ensureMainBestTab();setNavLabels();syncNavState();ensureMatrixGradient();applyMatrixGradient();decorateSpecialMedia()},0);return out};renderWrapped=true;
   }
-  function observeBest(){const root=document.querySelector('#bestStrip');if(!root||root.dataset.v35Observed==='1')return;root.dataset.v35Observed='1';new MutationObserver(()=>setTimeout(decorateBestAvailable,0)).observe(root,{childList:true,subtree:true})}
+  function wireSpecialOpenRefresh(){
+    for(const id of ['defenseBtn','kickerBtn']){const b=document.querySelector('#'+id);if(!b||b.dataset.v36Media)continue;b.dataset.v36Media='1';b.addEventListener('click',()=>{setTimeout(decorateSpecialMedia,200);setTimeout(decorateSpecialMedia,900)})}
+  }
 
   function activate(){
-    addStyles();installMainButtons();ensureDraftModeTabs();wrapSettings();wrapImport();wrapRender();observeBest();injectMyTeamSetting();decorateBestAvailable();syncMainButtons();syncDraftMode();
-    setTimeout(()=>{installMainButtons();wrapSettings();wrapImport();wrapRender();observeBest();injectMyTeamSetting();decorateBestAvailable();syncMainButtons();syncDraftMode()},800);
+    addStyles();ensureMainBestTab();setNavLabels();wrapRender();wireSpecialOpenRefresh();ensureMatrixGradient();applyMatrixGradient();decorateSpecialMedia();installDepthAudit();syncNavState();
+    setTimeout(()=>{ensureMainBestTab();setNavLabels();wireSpecialOpenRefresh();ensureMatrixGradient();applyMatrixGradient();decorateSpecialMedia();installDepthAudit();syncNavState()},900);
   }
-  window.addEventListener('load',()=>{setTimeout(activate,650);setTimeout(activate,1500)});
+  window.addEventListener('load',()=>{setTimeout(activate,1900);setTimeout(activate,2900)});
 })();
