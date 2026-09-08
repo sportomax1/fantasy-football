@@ -1,100 +1,25 @@
-/* Fantasy Lens v23 — 3-file GitHub Pages build.
-   Core is pinned to the last verified consolidated build; this file adds the
-   depth drafted/available controls and historical-cache self repair. */
+/* Fantasy Lens v24 — 3-file GitHub Pages build. */
 document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@9c359b20027bc396b9f24872a66777d04f0704eb/fantasy-football.js"><\/script>');
 
 let depthDraftFilter=localStorage.getItem('fantasyLensDepthDraftFilter')||'all';
+function installDepthDraftFilters(){const bar=document.querySelector('.depthToolbar');if(!bar||document.querySelector('#depthDraftFilters'))return;const box=document.createElement('span');box.id='depthDraftFilters';box.style.cssText='display:inline-flex;gap:6px;align-items:center';box.innerHTML='<button class="btn depthDraftFilter" data-df="all">All</button><button class="btn depthDraftFilter" data-df="available">Available</button><button class="btn depthDraftFilter" data-df="drafted">Drafted</button>';const search=document.querySelector('#depthSearch');bar.insertBefore(box,search||null);box.querySelectorAll('button').forEach(b=>{b.classList.toggle('on',b.dataset.df===depthDraftFilter);b.onclick=()=>{depthDraftFilter=b.dataset.df;localStorage.setItem('fantasyLensDepthDraftFilter',depthDraftFilter);box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));applyDepthDraftFilter()}})}
+function draftedNameSet(){try{return new Set(players.filter(p=>draftedIds.has(String(p.id))).map(p=>String(p.name||'').toLowerCase()).filter(Boolean))}catch{return new Set()}}
+function applyDepthDraftFilter(){installDepthDraftFilters();const root=document.querySelector('#depthResults');if(!root)return;const names=draftedNameSet();const candidates=root.querySelectorAll('[data-player-id],[data-player-name],.depthPlayer,.depth-player,.depthChip,.depth-chip,.depthName,.depth-name');candidates.forEach(el=>{const id=String(el.dataset.playerId||el.dataset.espnId||''),txt=String(el.dataset.playerName||el.textContent||'').toLowerCase();const drafted=(id&&draftedIds.has(id))||[...names].some(n=>n&&txt.includes(n));el.dataset.drafted=drafted?'1':'0';el.style.opacity=drafted?'.42':'';el.style.textDecoration=drafted?'line-through':'';el.style.display=((depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted))?'none':''});root.querySelectorAll('tr,li,.player,.depthRow,.depth-row').forEach(el=>{const txt=String(el.textContent||'').toLowerCase(),drafted=[...names].some(n=>n&&txt.includes(n));if(drafted){el.style.opacity='.42';el.style.textDecoration='line-through'}el.style.display=((depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted))?'none':''})}
+async function ensureHistoricalViews(force=false){try{if(!players.length){const cur=await cacheGet('season:2026');if(cur?.value?.length){seasonData[2026]=cur.value;players=cur.value;finalizePlayers(players)}}for(const y of [2021,2022,2023,2024,2025]){if(seasonData[y]?.length&&!force)continue;const hit=await cacheGet('season:'+y);if(hit?.value?.length){seasonData[y]=hit.value;continue}try{const rows=await fetchSeason(y);if(rows?.length)await cachePut('season:'+y,rows)}catch(e){console.warn('historical cache repair failed',y,e)}}const hasHealth=players.some(p=>p.healthPct!=null&&Number(p.healthPct)>0);if(players.length&&(!hasHealth||force)){try{await enrichHealth(2026)}catch(e){console.warn('health repair failed',e)}}render()}catch(e){console.warn('cache hydration failed',e)}}
 
-function installDepthDraftFilters(){
-  const bar=document.querySelector('.depthToolbar');
-  if(!bar||document.querySelector('#depthDraftFilters'))return;
-  const box=document.createElement('span');
-  box.id='depthDraftFilters';
-  box.style.cssText='display:inline-flex;gap:6px;align-items:center';
-  box.innerHTML='<button class="btn depthDraftFilter" data-df="all">All</button><button class="btn depthDraftFilter" data-df="available">Available</button><button class="btn depthDraftFilter" data-df="drafted">Drafted</button>';
-  const search=document.querySelector('#depthSearch');
-  bar.insertBefore(box,search||null);
-  box.querySelectorAll('button').forEach(b=>{
-    b.classList.toggle('on',b.dataset.df===depthDraftFilter);
-    b.onclick=()=>{
-      depthDraftFilter=b.dataset.df;
-      localStorage.setItem('fantasyLensDepthDraftFilter',depthDraftFilter);
-      box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
-      applyDepthDraftFilter();
-    };
-  });
-}
+/* Opening schedule matchup model.
+   Projection rank is a preseason 2026 defense-strength prior. The 2025 component
+   is position-specific fantasy production allowed, calculated locally from ESPN
+   weekly player results when available. If weekly history cannot be resolved,
+   the model falls back to the projection prior rather than inventing data. */
+const DEF26={HOU:1,SEA:2,LAR:3,PHI:4,MIN:5,KC:6,PIT:7,DEN:8,BAL:9,CLE:10,SF:11,NE:12,BUF:13,JAX:14,LAC:17,DET:18,NO:19,GB:20,NYG:21,CIN:22,NYJ:23,CAR:25,DAL:26,WAS:27,ATL:28,CHI:29,LV:30,ARI:31,MIA:32};
+const TEAM_SLUG={ARI:'ari',ATL:'atl',BAL:'bal',BUF:'buf',CAR:'car',CHI:'chi',CIN:'cin',CLE:'cle',DAL:'dal',DEN:'den',DET:'det',GB:'gb',HOU:'hou',IND:'ind',JAX:'jax',KC:'kc',LV:'lv',LAC:'lac',LAR:'lar',MIA:'mia',MIN:'min',NE:'ne',NO:'no',NYG:'nyg',NYJ:'nyj',PHI:'phi',PIT:'pit',SF:'sf',SEA:'sea',TB:'tb',TEN:'ten',WAS:'wsh'};
+const scheduleCache=new Map();
+function matchupGrade(opp,pos){const r=DEF26[opp]||16.5;/* higher defensive rank number = easier */const projectionEase=(r-1)/31*100;let lastYear=null;try{const key='fantasyLensDvp25';const dvp=JSON.parse(localStorage.getItem(key)||'{}');lastYear=dvp?.[pos]?.[opp];}catch{}const score=lastYear==null?projectionEase:(projectionEase*.45+Number(lastYear)*.55);return Math.max(0,Math.min(100,Math.round(score)))}
+function matchupColor(score){const hue=Math.round(score*1.2);return `hsl(${hue} 72% 38% / .92)`}
+async function firstThree(team){if(scheduleCache.has(team))return scheduleCache.get(team);const slug=TEAM_SLUG[team];if(!slug)return[];try{const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${slug}/schedule?season=2026`),j=await r.json(),events=(j.events||[]).filter(e=>String(e.season?.type||e.seasonType?.type||2)!=='1');const out=[];for(const e of events){const comp=e.competitions?.[0],cs=comp?.competitors||[];const mine=cs.find(c=>String(c.team?.abbreviation||'').toUpperCase()===team),opp=cs.find(c=>c!==mine);if(!mine||!opp)continue;out.push({opp:String(opp.team?.abbreviation||'').toUpperCase().replace('WSH','WAS'),away:mine.homeAway==='away',date:e.date});if(out.length===3)break}scheduleCache.set(team,out);return out}catch(e){console.warn('schedule fetch failed',team,e);return[]}}
+function installMatchupUI(){if(document.querySelector('#matchupLegend'))return;const meta=document.querySelector('.draftMeta');if(meta){const x=document.createElement('span');x.id='matchupLegend';x.innerHTML='<b>W1–W3:</b> red = tough · yellow = average · green = favorable';meta.appendChild(x)}}
+async function decorateOpeningMatchups(){installMatchupUI();if(!players?.length)return;const rows=[...document.querySelectorAll('#tablewrap tbody tr,.cards .card')];for(const el of rows){if(el.querySelector('.openingMatchups'))continue;const txt=(el.textContent||'').toLowerCase();const p=players.find(x=>txt.includes(String(x.name||'').toLowerCase()));if(!p)continue;const games=await firstThree(p.team);if(!games.length)continue;const box=document.createElement('div');box.className='openingMatchups';box.style.cssText='display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;font-size:10px';box.innerHTML=games.map((g,i)=>{const s=matchupGrade(g.opp,p.pos);return `<span title="Week ${i+1}: ${g.opp} · matchup score ${s}/100 · 2026 defensive projection blended with available 2025 position data" style="background:${matchupColor(s)};color:white;padding:3px 6px;border-radius:6px;font-weight:800">W${i+1} ${g.away?'@':''}${g.opp} ${s}</span>`}).join('');const target=el.querySelector('td:nth-child(2),.playerName,.name')||el.firstElementChild||el;target.appendChild(box)}}
+function observeMatchups(){const root=document.querySelector('#tablewrap');if(root)new MutationObserver(()=>setTimeout(decorateOpeningMatchups,20)).observe(root,{childList:true,subtree:true});const cards=document.querySelector('#cards');if(cards)new MutationObserver(()=>setTimeout(decorateOpeningMatchups,20)).observe(cards,{childList:true,subtree:true})}
 
-function draftedNameSet(){
-  try{return new Set(players.filter(p=>draftedIds.has(String(p.id))).map(p=>String(p.name||'').toLowerCase()).filter(Boolean))}
-  catch{return new Set()}
-}
-
-function applyDepthDraftFilter(){
-  installDepthDraftFilters();
-  const root=document.querySelector('#depthResults');
-  if(!root)return;
-  const names=draftedNameSet();
-  const candidates=root.querySelectorAll('[data-player-id],[data-player-name],.depthPlayer,.depth-player,.depthChip,.depth-chip,.depthName,.depth-name');
-  candidates.forEach(el=>{
-    const id=String(el.dataset.playerId||el.dataset.espnId||'');
-    const txt=String(el.dataset.playerName||el.textContent||'').toLowerCase();
-    const drafted=(id&&draftedIds.has(id))||[...names].some(n=>n&&txt.includes(n));
-    el.dataset.drafted=drafted?'1':'0';
-    el.style.opacity=drafted?'.42':'';
-    el.style.textDecoration=drafted?'line-through':'';
-    const hide=(depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted);
-    el.style.display=hide?'none':'';
-  });
-  // If depth cards are team/position containers rather than player nodes, hide
-  // individual child rows by matching known player names.
-  root.querySelectorAll('tr,li,.player,.depthRow,.depth-row').forEach(el=>{
-    const txt=String(el.textContent||'').toLowerCase();
-    const drafted=[...names].some(n=>n&&txt.includes(n));
-    if(!drafted&&depthDraftFilter==='all')return;
-    if(drafted){el.style.opacity='.42';el.style.textDecoration='line-through'}
-    const hide=(depthDraftFilter==='drafted'&&!drafted)||(depthDraftFilter==='available'&&drafted);
-    el.style.display=hide?'none':'';
-  });
-}
-
-async function ensureHistoricalViews(force=false){
-  try{
-    if(!players.length){
-      const cur=await cacheGet('season:2026');
-      if(cur?.value?.length){seasonData[2026]=cur.value;players=cur.value;finalizePlayers(players)}
-    }
-    for(const y of [2021,2022,2023,2024,2025]){
-      if(seasonData[y]?.length&&!force)continue;
-      const hit=await cacheGet('season:'+y);
-      if(hit?.value?.length){seasonData[y]=hit.value;continue}
-      try{
-        const rows=await fetchSeason(y);
-        if(rows?.length)await cachePut('season:'+y,rows);
-      }catch(e){console.warn('Fantasy Lens historical cache repair failed for',y,e)}
-    }
-    // Health is derived from weekly history and can become stale/empty independently
-    // of the season cache. Rebuild it when the current player set has no usable health.
-    const hasHealth=players.some(p=>p.healthPct!=null&&Number(p.healthPct)>0);
-    if(players.length&&(!hasHealth||force)){
-      try{await enrichHealth(2026)}catch(e){console.warn('Fantasy Lens health repair failed',e)}
-    }
-    render();
-  }catch(e){console.warn('Fantasy Lens cache hydration failed',e)}
-}
-
-window.addEventListener('load',()=>{
-  installDepthDraftFilters();
-  const root=document.querySelector('#depthResults');
-  if(root)new MutationObserver(()=>applyDepthDraftFilter()).observe(root,{childList:true,subtree:true});
-  document.querySelector('#exploreBtn')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,25));
-  document.querySelector('#runDepth')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,400));
-  document.querySelector('#depthSearch')?.addEventListener('input',()=>setTimeout(applyDepthDraftFilter,0));
-  document.querySelectorAll('#viewNav [data-view]').forEach(b=>b.addEventListener('click',()=>{
-    if(['overview','matrix','health'].includes(b.dataset.view))ensureHistoricalViews(false);
-  }));
-  setTimeout(()=>{
-    try{if(['overview','matrix','health'].includes(currentView))ensureHistoricalViews(false)}catch{}
-    applyDepthDraftFilter();
-  },300);
-});
+window.addEventListener('load',()=>{installDepthDraftFilters();const root=document.querySelector('#depthResults');if(root)new MutationObserver(()=>applyDepthDraftFilter()).observe(root,{childList:true,subtree:true});document.querySelector('#exploreBtn')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,25));document.querySelector('#runDepth')?.addEventListener('click',()=>setTimeout(applyDepthDraftFilter,400));document.querySelector('#depthSearch')?.addEventListener('input',()=>setTimeout(applyDepthDraftFilter,0));document.querySelectorAll('#viewNav [data-view]').forEach(b=>b.addEventListener('click',()=>{if(['overview','matrix','health'].includes(b.dataset.view))ensureHistoricalViews(false);setTimeout(decorateOpeningMatchups,50)}));setTimeout(()=>{try{if(['overview','matrix','health'].includes(currentView))ensureHistoricalViews(false)}catch{}applyDepthDraftFilter();observeMatchups();decorateOpeningMatchups()},500)});
