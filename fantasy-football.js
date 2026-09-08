@@ -131,3 +131,125 @@
     },100);
   });
 })();
+
+/* Fantasy Lens v31 polish — compact ALL matrix, readable special teams, smarter draft import. */
+(function(){
+  const DEF_KEY='fantasyLensDraftedDefenses', K_KEY='fantasyLensDraftedKickers';
+  const norm=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+  const readSet=key=>{try{return new Set(JSON.parse(localStorage.getItem(key)||'[]'))}catch{return new Set()}};
+  const saveSet=(key,set)=>localStorage.setItem(key,JSON.stringify([...set]));
+  const teamCode=v=>{const t=String(v||'').toUpperCase();return t==='WSH'?'WAS':t==='LA'?'LAR':t};
+
+  function installPolishStyles(){
+    if(document.querySelector('#fantasyLensV31Styles'))return;
+    const s=document.createElement('style');s.id='fantasyLensV31Styles';s.textContent=`
+      .fullDataModal .defRankTable tbody td:first-child .defTeam>span{color:#fff!important;font-weight:900!important}
+      .fullDataModal .defRankTable tbody td:first-child .kickerPrimary>span>b{color:#fff!important}
+      .matrixTable tr.matrixAllGroup td,.matrixTable tr.matrixAllGroupLast td{padding:2px 5px!important;height:22px!important;line-height:1!important;font-size:9px!important}
+      .matrixTable tr.matrixAllGroup .miniTrend,.matrixTable tr.matrixAllGroupLast .miniTrend{height:17px!important;width:78px!important;display:block!important}
+      .matrixTable tr.matrixAllGroup .trendCaption,.matrixTable tr.matrixAllGroupLast .trendCaption{display:none!important}
+      .matrixTable .matrixPlayerCell{padding-top:3px!important;padding-bottom:3px!important;vertical-align:middle!important}
+      .matrixTable .matrixPlayerCell .playerline{min-height:0!important;gap:5px!important}
+      .matrixTable .matrixPlayerCell .head{width:28px!important;height:28px!important}
+      .matrixTable .matrixMetricLabel{font-size:9px!important;line-height:1!important}
+      .specialDraftedRow{opacity:.46!important}
+      .specialDraftTag{display:inline-block;margin-left:7px;padding:2px 5px;border-radius:999px;background:#8c969e;color:#fff!important;font-size:8px;font-weight:900;letter-spacing:.04em}
+    `;document.head.appendChild(s);
+  }
+
+  function extractPickName(line){
+    let x=String(line||'').replace(/\s*\([^)]*\-\s*(?:K|DEF)\s*\)\s*$/i,'').trim();
+    x=x.replace(/^\(\d+\)\s*[^-]+\-\s*/,'').trim();
+    if(x.includes(',')){const [last,...rest]=x.split(','),first=rest.join(' ').trim();if(first&&last)return `${first} ${last}`.trim()}
+    return x;
+  }
+  function isNoise(line){
+    const x=String(line||'').trim();
+    return /^round\s+\d+\s*$/i.test(x)||/^round by round results\s*$/i.test(x)||/^\*?\s*your team in bold\s*$/i.test(x)||/^your team\s*$/i.test(x)||/^draft results?\s*$/i.test(x);
+  }
+
+  function smartParseV31(text){
+    const matched=new Map(),unmatched=[],ignored=[],special=[];
+    const defSet=readSet(DEF_KEY),kSet=readSet(K_KEY);
+    const roster=(window.players||((typeof players!=='undefined')?players:[])||[]).map(p=>({p,tokens:norm(p.name).split(' ').filter(Boolean)}));
+    for(const raw of String(text||'').split(/\r?\n/)){
+      const line=raw.trim();if(!line)continue;
+      if(isNoise(line)){ignored.push(line);continue}
+      const slot=line.match(/\(([A-Za-z]{2,3})\s*\-\s*(DEF|K)\s*\)/i);
+      if(slot){
+        const team=teamCode(slot[1]),kind=slot[2].toUpperCase();
+        if(kind==='DEF'){
+          defSet.add(team);special.push(`DEF ${team}`);continue;
+        }
+        const name=extractPickName(line),key=norm(name);
+        if(key){kSet.add(key);special.push(`${name} (${team} K)`);continue}
+      }
+      const lineTokens=new Set(norm(line).split(' ').filter(Boolean));
+      const hits=roster.filter(x=>x.tokens.length>=2&&x.tokens.every(t=>lineTokens.has(t)));
+      if(hits.length){for(const x of hits)matched.set(String(x.p.id),x.p)}else unmatched.push(line);
+    }
+    saveSet(DEF_KEY,defSet);saveSet(K_KEY,kSet);
+    return{matched:[...matched.values()],unmatched,ignored,special};
+  }
+
+  async function fixedImportV31(){
+    const status=document.querySelector('#draftImportStatus'),box=document.querySelector('#draftImportText');if(!status||!box)return;
+    const text=box.value;if(!text.trim()){status.textContent='Paste draft results first.';return}
+    if(typeof players!=='undefined'&&!players.length){
+      status.textContent='Player data is not loaded yet. Loading it now…';document.querySelector('#run')?.click();
+      for(let i=0;i<60&&!players.length;i++)await new Promise(r=>setTimeout(r,500));
+      if(!players.length){status.textContent='Could not load the player database. Tap LOAD DATA, then retry the import.';return}
+    }
+    const res=smartParseV31(text);
+    for(const p of res.matched)draftedIds.add(String(p.id));
+    if(typeof saveDrafted==='function')saveDrafted();if(typeof render==='function')render();
+    if(typeof depthData!=='undefined'&&depthData&&document.querySelector('#exploreModal')?.classList.contains('open')&&typeof renderDepthMatrix==='function')renderDepthMatrix(depthData);
+    decorateSpecialDrafted();
+    const names=res.matched.map(p=>`${p.name} (${p.pos} ${p.team})`);
+    status.textContent=`Matched ${res.matched.length} skill player${res.matched.length===1?'':'s'} and marked drafted.`+
+      (res.special.length?`\nRecognized ${res.special.length} K/DEF pick${res.special.length===1?'':'s'} separately.`:'')+
+      (names.length?`\n\nMATCHED PLAYERS:\n${names.join('\n')}`:'')+
+      (res.special.length?`\n\nK / DEF:\n${res.special.join('\n')}`:'')+
+      (res.ignored.length?`\n\nIgnored ${res.ignored.length} draft-format header/round line${res.ignored.length===1?'':'s'}.`:'')+
+      (res.unmatched.length?`\n\nStill unmatched (${res.unmatched.length}):\n${res.unmatched.slice(0,30).join('\n')}`:'\n\nNo unexplained lines remain.');
+  }
+
+  function decorateSpecialDrafted(){
+    const defs=readSet(DEF_KEY),ks=readSet(K_KEY);
+    document.querySelectorAll('#defenseHistoryTable tbody tr').forEach(tr=>{
+      const team=teamCode(tr.querySelector('.defTeam>span')?.textContent.trim());const on=defs.has(team);tr.classList.toggle('specialDraftedRow',on);
+      const cell=tr.querySelector('.defTeam');if(on&&cell&&!cell.querySelector('.specialDraftTag'))cell.insertAdjacentHTML('beforeend','<span class="specialDraftTag">DRAFTED</span>');
+    });
+    document.querySelectorAll('#kickerTable tbody tr').forEach(tr=>{
+      const name=norm(tr.querySelector('.kickerPrimary small')?.textContent||'');const on=name&&ks.has(name);tr.classList.toggle('specialDraftedRow',on);
+      const cell=tr.querySelector('.kickerPrimary');if(on&&cell&&!cell.querySelector('.specialDraftTag'))cell.insertAdjacentHTML('beforeend','<span class="specialDraftTag">DRAFTED</span>');
+    });
+  }
+
+  function wireSpecialRefresh(){
+    for(const id of ['defenseBtn','kickerBtn']){
+      const b=document.querySelector('#'+id);if(!b||b.dataset.v31Wrapped==='1')continue;
+      const old=b.onclick;b.dataset.v31Wrapped='1';b.onclick=function(e){const out=old?.call(this,e);let n=0;const t=setInterval(()=>{decorateSpecialDrafted();if(++n>=20)clearInterval(t)},150);return out};
+    }
+  }
+
+  function resetAllDraftedV31(){
+    const defs=readSet(DEF_KEY),ks=readSet(K_KEY),skill=(typeof draftedIds!=='undefined'?draftedIds.size:0),total=skill+defs.size+ks.size;if(!total)return;
+    if(!confirm(`Clear all ${total} drafted player/team selections?`))return;
+    if(typeof draftedIds!=='undefined')draftedIds.clear();saveSet(DEF_KEY,new Set());saveSet(K_KEY,new Set());
+    if(typeof saveDrafted==='function')saveDrafted();const d=document.querySelector('#draftedOnly');if(d)d.checked=false;localStorage.setItem('fantasyLensDraftedOnly','false');
+    if(typeof render==='function')render();if(typeof depthData!=='undefined'&&depthData&&document.querySelector('#exploreModal')?.classList.contains('open')&&typeof renderDepthMatrix==='function')renderDepthMatrix(depthData);decorateSpecialDrafted();
+  }
+
+  function activateV31(){
+    installPolishStyles();
+    const dm=document.querySelector('#defenseModal .modalhead h2');if(dm)dm.textContent='Defense';
+    const km=document.querySelector('#kickerModal .modalhead h2');if(km)km.textContent='Kicker';
+    window.parseDraftText=smartParseV31;window.applyDraftImport=fixedImportV31;
+    const p=document.querySelector('#parseDraftBtn');if(p)p.onclick=fixedImportV31;
+    const r=document.querySelector('#resetDraft');if(r)r.onclick=resetAllDraftedV31;
+    wireSpecialRefresh();decorateSpecialDrafted();
+  }
+
+  window.addEventListener('load',()=>{setTimeout(activateV31,450);setTimeout(activateV31,1200)});
+})();
