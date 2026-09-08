@@ -1,157 +1,40 @@
-/* Fantasy Lens v27 — 3-file GitHub Pages build. Lazy advanced views. */
-document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@d9780f300b9c6d7f50c3ded5e461781654315d80/fantasy-football.js"><\/script>');
-/* Fantasy Lens v27 UI/data patch — lazy schedule, defense/kicker fullscreen, weekly view, matrix all. */
+/* Fantasy Lens v28 bootstrap — fixes v27 activation ordering without adding repo files. */
 (function(){
-  const V27='v27';
-  let weeklyLens=localStorage.getItem('fantasyLensWeeklyLens')||'opening';
-  let weeklySort={key:localStorage.getItem('fantasyLensWeeklySort')||'opening',dir:Number(localStorage.getItem('fantasyLensWeeklyDir')||-1)};
-  let leagueScheduleCache={};
-  let dvpValues2025=null;
-  let weeklyLoading=false;
+  const V27_URL='https://cdn.jsdelivr.net/gh/sportomax1/fantasy-football@e5105c1489b246674a8c960c53cdfeb46e3b3c27/fantasy-football.js';
+  document.write('<script src="'+V27_URL+'"><\/script>');
 
-  function addV27Styles(){
-    if(document.querySelector('#fantasyLensV27Styles'))return;
-    const s=document.createElement('style');s.id='fantasyLensV27Styles';s.textContent=`
-      .fullDataModal .modalbox{width:96vw!important;max-width:none!important;height:94vh!important;max-height:94vh!important;display:flex;flex-direction:column}
-      .fullDataModal .careerbody{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column}
-      .fullDataModal .defRankWrap{max-height:none!important;flex:1;min-height:0}
-      #viewNav .dataViewBtn{border-style:dashed}
-      .defRankTable td:first-child,.defRankTable th:first-child{min-width:170px}
-      .defTrend{font-weight:900}.defTrend.good{color:#2aa84a}.defTrend.bad{color:#c83d31}.defTrend.flat{color:var(--muted)}
-      .kickerPrimary small,.kickerNames{display:block;color:var(--muted);font-size:9px;line-height:1.25;margin-top:3px;white-space:normal}
-      .weeklyToolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 4px 12px}
-      .weeklyWrap{overflow:auto;max-height:67vh;border:1px solid rgba(30,50,65,.13);border-radius:10px;background:var(--panel)}
-      .weeklyTable{border-collapse:separate;border-spacing:0;min-width:2450px;width:100%;font-size:10px}
-      .weeklyTable th,.weeklyTable td{padding:7px 6px;border-bottom:1px solid rgba(30,50,65,.1);text-align:center;white-space:nowrap}
-      .weeklyTable th{position:sticky;top:0;z-index:4;background:#e9eeeb;cursor:pointer}
-      .weeklyTable th:first-child,.weeklyTable td:first-child{position:sticky;left:0;z-index:3;background:#f8f7f1;text-align:left;min-width:220px}
-      .weeklyTable th:first-child{z-index:6;background:#e9eeeb}
-      .weeklyCell{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:56px;border-radius:7px;padding:5px 5px;color:#fff;font-weight:900;line-height:1.05}
-      .weeklyCell small{font-size:8px;opacity:.86;margin-top:3px;font-weight:700}.weeklyBye{background:#8d969e!important;color:#fff}.weeklyNA{background:#a7adb2!important;color:#fff}
-      .weeklySummary{font-weight:900}.weeklyRank{font-weight:900}.weeklyRank small{display:block;color:var(--muted);font-size:8px}
-      .weeklyHighlight{box-shadow:inset 0 -3px 0 rgba(0,120,150,.35)}
-      .matrixAllGroup td{border-bottom-color:rgba(30,50,65,.05)}.matrixAllGroupLast td{border-bottom:2px solid rgba(30,50,65,.18)}
-      .matrixMetricLabel{font-weight:900;text-align:left!important}.matrixPlayerCell{vertical-align:top;min-width:260px}
-      .sampleText{display:block;color:var(--muted);font-size:9px;margin-top:2px}
-      @media(max-width:700px){.fullDataModal .modalbox{width:100vw!important;height:100vh!important;max-height:100vh!important;border-radius:0!important}.weeklyWrap{max-height:72vh}}
-    `;document.head.appendChild(s);
+  function activateAdvancedViews(){
+    try{
+      if(typeof installMatchupSettings==='function') installMatchupSettings();
+      if(typeof installDefenseModal==='function') installDefenseModal();
+      if(typeof installKickerModal==='function') installKickerModal();
+      if(typeof render==='function') render();
+    }catch(e){console.error('Fantasy Lens v28 activation failed',e)}
   }
-
-  function addNavButtons(){
-    const nav=document.querySelector('#viewNav');if(!nav)return;
-    if(!nav.querySelector('[data-view="weekly"]')){const b=document.createElement('button');b.className='btn';b.dataset.view='weekly';b.textContent='Weekly Matchups';nav.appendChild(b)}
-    if(!document.querySelector('#defenseBtn')){const b=document.createElement('button');b.className='btn dataViewBtn';b.id='defenseBtn';b.textContent='DEFENSE';nav.appendChild(b)}
-    if(!document.querySelector('#kickerBtn')){const b=document.createElement('button');b.className='btn dataViewBtn';b.id='kickerBtn';b.textContent='KICKER';nav.appendChild(b)}
-    document.querySelector('.appbarInner #defenseBtn')?.remove();document.querySelector('.appbarInner #kickerBtn')?.remove();document.querySelector('.appbarInner #specialBtn')?.remove();
-  }
-
-  function fullModal(id,title,subtitle,bodyId,statusId){
-    let m=document.querySelector('#'+id);if(m)m.remove();
-    m=document.createElement('div');m.className='modal fullDataModal';m.id=id;
-    m.innerHTML=`<div class="modalbox"><div class="modalhead"><div><h2>${title}</h2><small style="color:#aebdca">${subtitle}</small></div><button class="btn close" data-close="${id}">×</button></div><div class="careerbody"><div class="careerstatus" id="${statusId}"></div><div id="${bodyId}" style="min-height:0;flex:1;display:flex;flex-direction:column"></div></div></div>`;
-    document.body.appendChild(m);m.querySelector('[data-close]').onclick=()=>m.classList.remove('open');m.onclick=e=>{if(e.target===m)m.classList.remove('open')};return m;
-  }
-
-  function rankAverage(arr){const a=arr.filter(Number.isFinite);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null}
-  function trendRank(current,older){if(!Number.isFinite(current)||!Number.isFinite(older))return {txt:'—',cls:'flat'};const d=older-current;if(Math.abs(d)<1)return{txt:'→ 0',cls:'flat'};return{txt:`${d>0?'▲':'▼'} ${Math.abs(Math.round(d))}`,cls:d>0?'good':'bad'}}
-
-  function installDefenseModalV27(){
-    addV27Styles();addNavButtons();
-    const modal=fullModal('defenseModal','DEFENSE','2026 projected rank + 2025–2021 actual defense ranks · #1 = strongest defense','defenseHistoryTable','defenseHistoryStatus');
-    document.querySelector('#defenseBtn').onclick=async()=>{modal.classList.add('open');document.querySelector('#defenseHistoryStatus').textContent='Loading defense matrix…';await Promise.all([loadProjectionDefenseRanks(false),loadDefenseHistory(false)]);renderDefenseHistory()};
-  }
-  function renderDefenseHistoryV27(){
-    const root=document.querySelector('#defenseHistoryTable'),status=document.querySelector('#defenseHistoryStatus');if(!root)return;
-    const years=[2025,2024,2023,2022,2021],proj=projectionDefenseRanks||FALLBACK_DEF26,teams=[...TEAM_CODES].sort((a,b)=>(proj[a]||99)-(proj[b]||99)||a.localeCompare(b));
-    const rows=teams.map(team=>{const hist=years.map(y=>Number(defenseHistory?.[y]?.ranks?.[team])).filter(Number.isFinite),a3=rankAverage(years.slice(0,3).map(y=>Number(defenseHistory?.[y]?.ranks?.[team]))),a5=rankAverage(hist),tr=trendRank(Number(defenseHistory?.[2025]?.ranks?.[team]),Number(defenseHistory?.[2023]?.ranks?.[team]));return `<tr><td><div class="defTeam"><img src="${teamLogoUrl(team)}" onerror="this.style.display='none'"><span>${team}</span></div></td><td><span class="defRankCell" style="background:${rankColor(proj[team]||16.5)}">#${proj[team]||'—'}</span><span class="kickerName">projected</span></td>${years.map(y=>{const r=Number(defenseHistory?.[y]?.ranks?.[team]),raw=defenseHistory?.[y]?.values?.[team];return Number.isFinite(r)?`<td title="${team} ${y}: ${raw==null?'':Math.round(raw)+' points allowed · '}rank #${r}"><span class="defRankCell" style="background:${rankColor(r)}">#${r}</span></td>`:'<td>—</td>'}).join('')}<td>${a3?`<span class="defRankCell" style="background:${rankColor(a3)}">${a3.toFixed(1)}</span>`:'—'}</td><td>${a5?`<span class="defRankCell" style="background:${rankColor(a5)}">${a5.toFixed(1)}</span>`:'—'}</td><td><span class="defTrend ${tr.cls}">${tr.txt}</span><span class="kickerName">2023→2025</span></td></tr>`}).join('');
-    root.innerHTML=`<div class="specialLegend"><span>Weak</span><i></i><span>Strong</span><span>• Green = stronger defense. Historical rank uses regular-season points allowed.</span></div><div class="defRankWrap"><table class="defRankTable"><thead><tr><th>Team</th><th>2026 PROJ</th>${years.map(y=>`<th>${y}</th>`).join('')}<th>3YR AVG</th><th>5YR AVG</th><th>TREND</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-    status.textContent='Projected 2026 ranking is kept distinct from actual 2025–2021 results. A lower rank number is stronger.';
-  }
-
-  function kickerSettings(){try{return Object.assign({fg039:3,fg4049:4,fg50:5,xp:1,fgmiss:0,xpmiss:0},JSON.parse(localStorage.getItem('fantasyLensKickerScoring')||'{}'))}catch{return{fg039:3,fg4049:4,fg50:5,xp:1,fgmiss:0,xpmiss:0}}}
-  function kickerPointsV27(row){const s=row.stats||row,k=kickerSettings(),bins=['fgm_0_19','fgm_20_29','fgm_30_39','fgm_40_49','fgm_50_59','fgm_60p'],hasBins=bins.some(x=>s[x]!=null);let pts=0;if(hasBins){pts+=(Number(s.fgm_0_19||0)+Number(s.fgm_20_29||0)+Number(s.fgm_30_39||0))*k.fg039;pts+=Number(s.fgm_40_49||0)*k.fg4049;pts+=(Number(s.fgm_50_59||0)+Number(s.fgm_60p||0)+Number(s.fgm_50p||0))*k.fg50}else pts+=Number(s.fgm||0)*k.fg039;pts+=Number(s.xpm||0)*k.xp;pts+=Number(s.fgmiss||s.fgm_missed||0)*k.fgmiss;pts+=Number(s.xpmiss||s.xpm_missed||0)*k.xpmiss;return pts}
-
-  async function loadKickerHistoryV27(force=false){
-    if(kickerHistory&&!force&&kickerHistory.v===2)return kickerHistory;const key='fantasyLensKickerHistoryV2-'+btoa(JSON.stringify(kickerSettings())).replace(/=+$/,'').slice(-16);if(!force){const c=cachedJson(key,24*60*60*1000);if(c){kickerHistory=c;return c}}
-    const directory=await loadSleeperDirectory(false),out={v:2,history:{},projection:{},current:{},namesByYear:{}};
-    const ys=[2025,2024,2023,2022,2021];
-    await Promise.all(ys.map(async y=>{try{const r=await fetch(`https://api.sleeper.com/stats/nfl/${y}?season_type=regular&position[]=K&order_by=pts_std`);if(!r.ok)throw Error(r.status);const rows=await r.json(),vals={},names={};for(const row of Array.isArray(rows)?rows:[]){if(sleeperPos(row,directory)!=='K')continue;const team=sleeperTeam(row,directory);if(!TEAM_CODES.includes(team))continue;const pts=kickerPointsV27(row),id=String(row.player_id||row.player?.player_id||''),name=row.player?.full_name||directory?.[id]?.full_name||[directory?.[id]?.first_name,directory?.[id]?.last_name].filter(Boolean).join(' ')||id;if(!Number.isFinite(pts))continue;vals[team]=(vals[team]||0)+pts;(names[team]??=[]).push({name,pts})}for(const t of Object.keys(names))names[t]=names[t].sort((a,b)=>b.pts-a.pts).map(x=>x.name);out.history[y]={values:vals,ranks:rankByValue(vals,true)};out.namesByYear[y]=names}catch(e){console.warn('kicker season failed',y,e)}}));
-    try{const r=await fetch('https://api.sleeper.com/projections/nfl/2026?season_type=regular&position[]=K&order_by=pts_std');if(!r.ok)throw Error(r.status);const rows=await r.json(),vals={},best={};for(const row of Array.isArray(rows)?rows:[]){if(sleeperPos(row,directory)!=='K')continue;const team=sleeperTeam(row,directory);if(!TEAM_CODES.includes(team))continue;const pts=kickerPointsV27(row),id=String(row.player_id||row.player?.player_id||''),name=row.player?.full_name||directory?.[id]?.full_name||[directory?.[id]?.first_name,directory?.[id]?.last_name].filter(Boolean).join(' ')||id;if(!Number.isFinite(pts))continue;if(!best[team]||pts>best[team].pts)best[team]={pts,name,id}}for(const [t,b] of Object.entries(best)){vals[t]=b.pts;out.current[t]=b}out.projection={values:vals,ranks:rankByValue(vals,true)}}catch(e){console.warn('kicker projections failed',e)}
-    kickerHistory=out;putCachedJson(key,out);return out;
-  }
-
-  function installKickerModalV27(){
-    addV27Styles();addNavButtons();const modal=fullModal('kickerModal','KICKER','2026 current kicker projection + prior team kicker production','kickerTable','kickerStatus');
-    document.querySelector('#kickerBtn').onclick=async()=>{modal.classList.add('open');document.querySelector('#kickerStatus').textContent='Loading kicker production…';await loadKickerHistoryV27(false);renderKickerHistory()};
-  }
-  function renderKickerHistoryV27(){
-    const root=document.querySelector('#kickerTable'),status=document.querySelector('#kickerStatus');if(!root||!kickerHistory)return;const years=[2025,2024,2023,2022,2021],pr=kickerHistory.projection?.ranks||{},teams=[...TEAM_CODES].sort((a,b)=>(pr[a]||99)-(pr[b]||99)||a.localeCompare(b));
-    const rows=teams.map(team=>{const curr=kickerHistory.current?.[team],rank=pr[team],a3=rankAverage(years.slice(0,3).map(y=>Number(kickerHistory.history?.[y]?.ranks?.[team]))),tr=trendRank(Number(kickerHistory.history?.[2025]?.ranks?.[team]),Number(kickerHistory.history?.[2023]?.ranks?.[team]));return `<tr><td><div class="defTeam kickerPrimary"><img src="${teamLogoUrl(team)}" onerror="this.style.display='none'"><span><b>${team}</b><small>${curr?.name||'No 2026 kicker projection'}</small></span></div></td><td>${rank?`<span class="defRankCell" style="background:${rankColor(rank)}">#${rank}</span><span class="kickerNames">${Math.round(curr?.pts||0)} proj pts</span>`:'—'}</td>${years.map(y=>{const r=Number(kickerHistory.history?.[y]?.ranks?.[team]),v=kickerHistory.history?.[y]?.values?.[team],names=kickerHistory.namesByYear?.[y]?.[team]||[];return Number.isFinite(r)?`<td title="${team} ${y}: ${Math.round(v||0)} kicker points"><span class="defRankCell" style="background:${rankColor(r)}">#${r}</span><span class="kickerNames">${Math.round(v||0)} pts<br>${names.join(' / ')||'—'}</span></td>`:'<td>—</td>'}).join('')}<td>${a3?`<span class="defRankCell" style="background:${rankColor(a3)}">${a3.toFixed(1)}</span>`:'—'}</td><td><span class="defTrend ${tr.cls}">${tr.txt}</span></td></tr>`}).join('');
-    root.innerHTML=`<div class="specialLegend"><span>Low output</span><i></i><span>High output</span><span>• Historical cells aggregate every kicker who scored for that team.</span></div><div class="defRankWrap"><table class="defRankTable"><thead><tr><th>TEAM / 2026 KICKER</th><th>2026 PROJ</th>${years.map(y=>`<th>${y} TEAM K</th>`).join('')}<th>3YR AVG</th><th>TREND</th></tr></thead><tbody>${rows}</tbody></table></div>`;status.textContent='2026 uses the highest projected current kicker on each team. Prior years combine all kickers for that team under your kicker scoring settings.';
-  }
-
-  function installSettingsV27(){
-    document.querySelector('#matchupModelSettings')?.remove();const body=document.querySelector('#settingsModal .careerbody');if(!body)return;const w=readModelWeights(),k=kickerSettings(),s=document.createElement('section');s.id='matchupModelSettings';s.style.cssText='margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.12)';s.innerHTML=`<h3 style="margin:0 0 6px">Weekly Matchup Model</h3><p style="color:var(--muted);font-size:11px;margin:0 0 10px">Every week blends 2026 projected overall defense with 2025 half-PPR fantasy points allowed per game to the exact position.</p><div style="display:grid;grid-template-columns:minmax(180px,1fr) 64px;gap:8px;align-items:center"><label>2026 projection weight <input id="matchProjWeight" type="range" min="0" max="100" step="5" value="${w.projection}" style="width:100%"></label><output id="matchProjOut">${w.projection}%</output><label>2025 positional defense weight <input id="matchLastWeight" type="range" min="0" max="100" step="5" value="${w.last}" style="width:100%" disabled></label><output id="matchLastOut">${w.last}%</output></div><button class="btn" id="refreshMatchupRanks" type="button" style="margin-top:10px">Refresh Weekly Defense Data</button><span id="matchupSettingsStatus" style="margin-left:8px;color:var(--muted);font-size:11px"></span><h3 style="margin:18px 0 6px">Kicker Scoring</h3><div class="settingsgrid"><label>FG 0–39<input class="field kickerScore" data-k="fg039" type="number" step=".5" value="${k.fg039}"></label><label>FG 40–49<input class="field kickerScore" data-k="fg4049" type="number" step=".5" value="${k.fg4049}"></label><label>FG 50+<input class="field kickerScore" data-k="fg50" type="number" step=".5" value="${k.fg50}"></label><label>XP made<input class="field kickerScore" data-k="xp" type="number" step=".5" value="${k.xp}"></label><label>FG miss<input class="field kickerScore" data-k="fgmiss" type="number" step=".5" value="${k.fgmiss}"></label><label>XP miss<input class="field kickerScore" data-k="xpmiss" type="number" step=".5" value="${k.xpmiss}"></label></div>`;body.appendChild(s);
-    const proj=s.querySelector('#matchProjWeight'),last=s.querySelector('#matchLastWeight'),po=s.querySelector('#matchProjOut'),lo=s.querySelector('#matchLastOut'),status=s.querySelector('#matchupSettingsStatus');proj.oninput=()=>{const nw=saveModelProjectionWeight(proj.value);last.value=nw.last;po.textContent=nw.projection+'%';lo.textContent=nw.last+'%';if(currentView==='weekly')renderWeeklyMatchups(true)};s.querySelector('#refreshMatchupRanks').onclick=async()=>{status.textContent='Refreshing…';dvpRanks2025=null;dvpValues2025=null;projectionDefenseRanks=null;leagueScheduleCache={};await Promise.all([loadProjectionDefenseRanks(true),loadDvpRanks2025V27(true),loadLeagueSchedule(2026,true)]);status.textContent='Updated';if(currentView==='weekly')renderWeeklyMatchups(true)};
-    s.querySelectorAll('.kickerScore').forEach(inp=>inp.onchange=()=>{const now=kickerSettings();now[inp.dataset.k]=Number(inp.value);localStorage.setItem('fantasyLensKickerScoring',JSON.stringify(now));kickerHistory=null;status.textContent='Kicker scoring updated';if(document.querySelector('#kickerModal')?.classList.contains('open')){loadKickerHistoryV27(true).then(renderKickerHistoryV27)}});
-  }
-
-  async function loadLeagueSchedule(year,force=false){
-    if(leagueScheduleCache[year]&&!force)return leagueScheduleCache[year];const key=`fantasyLensLeagueSchedule-${year}-v2`,max=year===2026?30*24*60*60*1000:365*24*60*60*1000;if(!force){const c=cachedJson(key,max);if(c){leagueScheduleCache[year]=c;return c}}
-    const map={};TEAM_CODES.forEach(t=>map[t]={});const weeks=Array.from({length:18},(_,i)=>i+1);
-    for(let i=0;i<weeks.length;i+=6){const got=await Promise.all(weeks.slice(i,i+6).map(async week=>{try{const r=await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${year}&seasontype=2&week=${week}`);if(!r.ok)throw Error(r.status);return{week,j:await r.json()}}catch(e){console.warn('scoreboard failed',year,week,e);return{week,j:{events:[]}}}}));for(const {week,j} of got){for(const e of j.events||[]){const cs=e.competitions?.[0]?.competitors||[];if(cs.length<2)continue;for(const mine of cs){const team=normTeam(mine.team?.abbreviation),opp=normTeam(cs.find(x=>x!==mine)?.team?.abbreviation);if(TEAM_CODES.includes(team)&&TEAM_CODES.includes(opp))map[team][week]={week,opp,away:mine.homeAway==='away',date:e.date||''}}}}}
-    leagueScheduleCache[year]=map;putCachedJson(key,map);return map;
-  }
-
-  async function loadDvpRanks2025V27(force=false){
-    if(dvpRanks2025&&!force&&dvpValues2025)return dvpRanks2025;const key='fantasyLensDvpRank2025V3';if(!force){const c=cachedJson(key,60*24*60*60*1000);if(c?.ranks){dvpRanks2025=c.ranks;dvpValues2025=c.values;return dvpRanks2025}}
-    const [directory,schedule]=await Promise.all([loadSleeperDirectory(false),loadLeagueSchedule(2025,force)]),totals={QB:{},RB:{},WR:{},TE:{}},games={};TEAM_CODES.forEach(t=>games[t]=Object.keys(schedule[t]||{}).length||17);
-    const weeks=Array.from({length:18},(_,i)=>i+1);
-    for(let i=0;i<weeks.length;i+=6){const got=await Promise.all(weeks.slice(i,i+6).map(async w=>{try{const r=await fetch(`https://api.sleeper.com/stats/nfl/2025/${w}?season_type=regular&position[]=QB&position[]=RB&position[]=WR&position[]=TE&order_by=pts_half_ppr`);if(!r.ok)throw Error(r.status);return{w,rows:await r.json()}}catch(e){console.warn('DVP stats failed',w,e);return{w,rows:[]}}}));for(const {w,rows} of got){for(const row of Array.isArray(rows)?rows:[]){const pos=sleeperPos(row,directory);if(!['QB','RB','WR','TE'].includes(pos))continue;const team=sleeperTeam(row,directory),directOpp=normTeam(row.opponent||row.opponent_team||row.stats?.opponent||row.player?.opponent),opp=TEAM_CODES.includes(directOpp)?directOpp:schedule?.[team]?.[w]?.opp;if(!TEAM_CODES.includes(opp))continue;const pts=sleeperHalfPpr(row);if(Number.isFinite(pts))totals[pos][opp]=(totals[pos][opp]||0)+pts}}}
-    const values={},ranks={};for(const pos of ['QB','RB','WR','TE']){values[pos]={};for(const t of TEAM_CODES)if(Number.isFinite(totals[pos][t]))values[pos][t]=totals[pos][t]/Math.max(1,games[t]);ranks[pos]=rankByValue(values[pos],false)}dvpRanks2025=ranks;dvpValues2025=values;putCachedJson(key,{ranks,values});return ranks;
-  }
-
-  async function ensureWeeklyData(force=false){await Promise.all([loadProjectionDefenseRanks(force),loadLeagueSchedule(2026,force),loadDvpRanks2025V27(force)])}
-  function matchupGradeV27(opp,pos){const w=readModelWeights(),projRank=projectionDefenseRanks?.[opp]||FALLBACK_DEF26[opp]||16.5,priorRank=dvpRanks2025?.[pos]?.[opp]||16.5,projEase=rankToEase(projRank),priorEase=rankToEase(priorRank);return{score:Math.round((projEase*w.projection+priorEase*w.last)/100),projRank,priorRank,priorFppg:dvpValues2025?.[pos]?.[opp],weights:w}}
-
-  function weeklyScoreFor(p,week,schedule){const g=schedule?.[normTeam(p.team)]?.[week];if(!g)return null;const m=matchupGradeV27(g.opp,p.pos);return{...m,...g}}
-  function weeklyAverages(p,schedule){const arr=Array.from({length:18},(_,i)=>weeklyScoreFor(p,i+1,schedule)),scores=arr.filter(Boolean).map(x=>x.score),opening=arr.slice(0,4).filter(Boolean).map(x=>x.score),playoffs=arr.slice(14,17).filter(Boolean).map(x=>x.score),avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;return{arr,opening:avg(opening),season:avg(scores),playoffs:avg(playoffs),best:scores.length?Math.max(...scores):null,worst:scores.length?Math.min(...scores):null}}
-  function weeklySortValue(row,key){if(key.startsWith('w')){const w=Number(key.slice(1));return row.metrics.arr[w-1]?.score??-999}return row.metrics[key]??-999}
-
-  async function renderWeeklyMatchups(force=false){
-    if(weeklyLoading&&!force)return;weeklyLoading=true;const root=document.querySelector('#tablewrap'),d=filtered();$('#count').textContent=d.length;$('#matrixTools').style.display='none';$('#bestStrip').innerHTML='';document.querySelectorAll('#viewNav [data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===currentView));$('#viewMeta').textContent='2026 W1–W18 position-specific matchup favorability';root.innerHTML='<div class="empty"><b>Loading weekly matchup lens…</b>This loads only when Weekly Matchups is opened and is cached separately from the draft board.</div>';
-    try{await ensureWeeklyData(force);const schedule=leagueScheduleCache[2026]||{},rows=d.filter(p=>['QB','RB','WR','TE'].includes(p.pos)).map(p=>({p,metrics:weeklyAverages(p,schedule)}));for(const pos of ['QB','RB','WR','TE']){const g=rows.filter(x=>x.p.pos===pos).sort((a,b)=>(b.metrics.season??-1)-(a.metrics.season??-1));g.forEach((x,i)=>{x.schedRank=i+1})}rows.sort((a,b)=>(weeklySortValue(a,weeklySort.key)-weeklySortValue(b,weeklySort.key))*weeklySort.dir||b.p.fantasy-a.p.fantasy);
-      const lensKey=weeklyLens==='opening'?'opening':weeklyLens==='playoffs'?'playoffs':'season';
-      root.innerHTML=`<div class="weeklyToolbar"><span class="webHint">Schedule Lens:</span>${[['opening','Opening 4'],['season','Full Season'],['playoffs','Playoffs 15–17']].map(([k,l])=>`<button class="btn weeklyLens ${weeklyLens===k?'on':''}" data-lens="${k}">${l}</button>`).join('')}<span class="webHint">0 = brutal · 100 = easiest. Each cell = ${readModelWeights().last}% 2025 position DvP + ${readModelWeights().projection}% 2026 projected defense.</span></div><div class="weeklyWrap"><table class="weeklyTable"><thead><tr><th>PLAYER</th>${Array.from({length:18},(_,i)=>`<th data-wsort="w${i+1}" class="${(weeklyLens==='opening'&&i<4)||(weeklyLens==='playoffs'&&i>=14&&i<=16)?'weeklyHighlight':''}">W${i+1}</th>`).join('')}<th data-wsort="opening">W1–4 AVG</th><th data-wsort="season">SEASON AVG</th><th data-wsort="playoffs">W15–17</th><th data-wsort="best">BEST</th><th data-wsort="worst">WORST</th><th data-wsort="schedRank">SCHED RANK</th></tr></thead><tbody>${rows.map(x=>`<tr class="${draftedIds.has(x.p.id)?'draftedRow':''}"><td>${playerCell(x.p)}</td>${x.metrics.arr.map((m,i)=>m?`<td><span class="weeklyCell ${(weeklyLens==='opening'&&i<4)||(weeklyLens==='playoffs'&&i>=14&&i<=16)?'weeklyHighlight':''}" style="background:${matchupColor(m.score)}" title="W${i+1} ${m.away?'@':''}${m.opp}: ${m.score}/100 · 2025 vs ${x.p.pos} rank #${m.priorRank}${Number.isFinite(m.priorFppg)?' ('+m.priorFppg.toFixed(1)+' FP/game)':''} · 2026 projected DEF #${m.projRank}"><b>${m.away?'@':''}${m.opp} ${m.score}</b><small>25#${m.priorRank} · 26#${m.projRank}</small></span></td>`:`<td><span class="weeklyCell weeklyBye">BYE</span></td>`).join('')}<td class="weeklySummary">${x.metrics.opening==null?'—':x.metrics.opening.toFixed(0)}</td><td class="weeklySummary">${x.metrics.season==null?'—':x.metrics.season.toFixed(0)}</td><td class="weeklySummary">${x.metrics.playoffs==null?'—':x.metrics.playoffs.toFixed(0)}</td><td>${x.metrics.best??'—'}</td><td>${x.metrics.worst??'—'}</td><td class="weeklyRank">#${x.schedRank||'—'}<small>${x.p.pos} easiest</small></td></tr>`).join('')}</tbody></table></div><div class="healthSummary"><b>Data quality:</b> 2025 component = actual half-PPR fantasy points allowed per game to QB/RB/WR/TE; 2026 component = projected overall team-defense rank. BYE weeks are gray and excluded from averages.</div>`;
-      root.querySelectorAll('[data-wsort]').forEach(h=>h.onclick=()=>{const k=h.dataset.wsort;if(weeklySort.key===k)weeklySort.dir*=-1;else{weeklySort.key=k;weeklySort.dir=-1}localStorage.setItem('fantasyLensWeeklySort',weeklySort.key);localStorage.setItem('fantasyLensWeeklyDir',weeklySort.dir);renderWeeklyMatchups(false)});root.querySelectorAll('[data-lens]').forEach(b=>b.onclick=()=>{weeklyLens=b.dataset.lens;localStorage.setItem('fantasyLensWeeklyLens',weeklyLens);weeklySort.key=lensKey===weeklyLens?weeklySort.key:(weeklyLens==='opening'?'opening':weeklyLens==='playoffs'?'playoffs':'season');weeklySort.dir=-1;renderWeeklyMatchups(false)});
-    }catch(e){root.innerHTML=`<div class="empty"><b>Weekly matchup load failed</b>${String(e.message||e)}</div>`}finally{weeklyLoading=false}
-  }
-
-  function healthSample(p){const years=[2021,2022,2023,2024,2025],map=Object.fromEntries((p.healthYears||[]).filter(x=>years.includes(x.year)).map(x=>[x.year,x])),eligible=years.filter(y=>map[y]),gp=eligible.reduce((a,y)=>a+Number(map[y]?.gp||0),0),sched=eligible.reduce((a,y)=>a+Number(map[y]?.sched||17),0);return{eligible:eligible.length,gp,sched,pct:sched?whole(gp/sched*100):null}}
-
-  function renderHealthV27(d){$('#viewMeta').textContent='Games played by NFL-eligible season • 2021–2025';const years=[2021,2022,2023,2024,2025],headers=[{t:'PLAYER'},{t:'AGE',k:'age'},...years.map(y=>({t:`${y} GP`})),{t:'ELIGIBLE GP'},{t:'MISSED'},{t:'AVAILABILITY',k:'healthPct'},{t:'ASSESSMENT'}],rows=d.map(p=>{const map=Object.fromEntries((p.healthYears||[]).filter(x=>years.includes(x.year)).map(x=>[x.year,x])),h=healthSample(p),missed=h.sched?Math.max(0,h.sched-h.gp):null,cl=h.pct>=80?'healthGood2':h.pct!=null&&h.pct<65?'healthRisk':'';return `<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p)}</td><td>${p.age||'—'}</td>${years.map(y=>{const x=map[y];return `<td class="gpCell">${x?`<b>${x.gp}</b><small>of ${x.sched}</small>`:'<span style="color:var(--muted)">N/A</span>'}</td>`}).join('')}<td><b>${h.sched?h.gp+'/'+h.sched:'—'}</b><small class="sampleText">${h.eligible} eligible season${h.eligible===1?'':'s'}</small></td><td>${missed==null?'—':missed}</td><td class="${cl}">${h.pct==null?'—':h.pct+'%'}${h.pct!=null?`<div class="healthPctBar"><i style="width:${h.pct}%"></i></div>`:''}</td><td>${healthLabel(h.pct)}</td></tr>`}).join('');$('#tablewrap').innerHTML=`<div class="healthSummary"><b>Health = availability, not a medical injury grade.</b> Pre-NFL seasons are N/A and never count as missed games. Sample size is shown explicitly.</div>`+tableWrap(headers,rows)}
-
-  function renderMatrixV27(d){
-    $('#viewMeta').textContent='2021–2025 actual trend • 2026 projection';const labels={all:'All Stats',fantasy:'Fantasy Points',yards:'Primary Yards',totalTD:'Touchdowns',turnovers:'Turnovers'},years=[2021,2022,2023,2024,2025],metrics=[['fantasy','FP'],['yards','Yards'],['totalTD','TD'],['turnovers','TO']];$('#matrixTools').style.display='flex';$('#matrixTools').innerHTML=`<span class="webHint">Metric:</span>${[['all','ALL'],...metrics].map(([k,t])=>`<button class="btn matrixMetric ${matrixMetric===k?'on':''}" data-metric="${k}">${t}</button>`).join('')}<span class="webHint" style="margin-left:8px">ALL stacks FP / Yards / TD / TO for each player</span>`;
-    if(matrixMetric!=='all'){const headers=[{t:'PLAYER'},...years.map(y=>({t:String(y)})),{t:'2026 PROJ'},{t:'5YR TREND'},{t:'3YR AVG'}],rows=d.map(p=>`<tr class="${draftedIds.has(p.id)?'draftedRow':''}"><td>${playerCell(p)}</td>${years.map(y=>`<td>${histMetric(p,y,matrixMetric)}</td>`).join('')}<td><b>${histMetric(p,2026,matrixMetric)}</b></td><td>${matrixSpark(p,years,matrixMetric)}</td><td><b>${fmt(threeYear(p,matrixMetric==='yards'?'yards':matrixMetric))}</b></td></tr>`).join('');$('#tablewrap').innerHTML=`<div style="padding:7px 9px;font-size:9px;color:var(--muted)">${labels[matrixMetric]}</div>`+tableWrap(headers,rows,'matrixTable');return}
-    const headers=['PLAYER','METRIC',...years.map(String),'2026 PROJ','5YR TREND','3YR AVG'],rows=d.map(p=>metrics.map(([m,label],i)=>`<tr class="${i===metrics.length-1?'matrixAllGroupLast':'matrixAllGroup'} ${draftedIds.has(p.id)?'draftedRow':''}">${i===0?`<td rowspan="4" class="matrixPlayerCell">${playerCell(p)}</td>`:''}<td class="matrixMetricLabel">${label}</td>${years.map(y=>`<td>${histMetric(p,y,m)}</td>`).join('')}<td><b>${histMetric(p,2026,m)}</b></td><td>${matrixSpark(p,years,m)}</td><td><b>${fmt(threeYear(p,m==='yards'?'yards':m))}</b></td></tr>`).join('')).join('');$('#tablewrap').innerHTML=`<div style="padding:7px 9px;font-size:9px;color:var(--muted)">ALL mode shows four stat rows per player so the full historical profile stays together.</div><table class="matrixTable"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
-  }
-
-  function decorateHealthSamples(){
-    if(!['draft','overview'].includes(currentView))return;const ps=filtered(),rows=[...document.querySelectorAll('#tablewrap tbody tr')],col=currentView==='draft'?7:9;rows.forEach((tr,i)=>{const p=ps[i];if(!p)return;const td=tr.querySelector(`td:nth-child(${col})`);if(!td||td.querySelector('.sampleText'))return;const h=healthSample(p);const x=document.createElement('span');x.className='sampleText';x.textContent=h.eligible?`${h.eligible} eligible season${h.eligible===1?'':'s'}`:'No eligible history';td.appendChild(x)});
-  }
-
-  function installRenderOverrides(){
-    renderHealth=renderHealthV27;renderMatrix=renderMatrixV27;
-    const baseRender=render;render=function(){if(currentView==='weekly'){renderWeeklyMatchups(false);return}const out=baseRender();setTimeout(decorateHealthSamples,0);return out};
-    decorateOpeningMatchups=function(){document.querySelectorAll('.openingMatchups').forEach(x=>x.remove())};observeMatchups=function(){};
-  }
-
-  installDefenseModal=installDefenseModalV27;renderDefenseHistory=renderDefenseHistoryV27;installKickerModal=installKickerModalV27;renderKickerHistory=renderKickerHistoryV27;loadKickerHistory=loadKickerHistoryV27;kickerPoints=kickerPointsV27;installMatchupSettings=installSettingsV27;loadDvpRanks2025=loadDvpRanks2025V27;matchupGrade=matchupGradeV27;
-  installRenderOverrides();
 
   window.addEventListener('load',()=>{
-    addV27Styles();addNavButtons();installSettingsV27();installDefenseModalV27();installKickerModalV27();renderHealth=renderHealthV27;renderMatrix=renderMatrixV27;document.querySelectorAll('.openingMatchups').forEach(x=>x.remove());
-    setTimeout(()=>{if(currentView==='weekly')renderWeeklyMatchups(false)},150);
+    setTimeout(()=>{
+      if(document.querySelector('#viewNav [data-view="weekly"]')){
+        activateAdvancedViews();
+        return;
+      }
+
+      // v27 can execute before its chained base globals are ready. Re-run the
+      // immutable v27 patch once the page is fully loaded, while suppressing
+      // its document.write bootstrap because the base/v26 layer is now ready.
+      const oldWrite=document.write;
+      document.write=()=>{};
+      const s=document.createElement('script');
+      s.src=V27_URL+'?retry=v28-'+Date.now();
+      s.onload=()=>{
+        document.write=oldWrite;
+        activateAdvancedViews();
+      };
+      s.onerror=()=>{
+        document.write=oldWrite;
+        console.error('Fantasy Lens v28 failed to reload advanced-view patch');
+      };
+      document.body.appendChild(s);
+    },80);
   });
 })();
