@@ -16,7 +16,7 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
   const teamSlug=t=>canonicalTeam(t)==='WAS'?'wsh':canonicalTeam(t).toLowerCase();
   const teamLogo=t=>t?`https://a.espncdn.com/i/teamlogos/nfl/500/${teamSlug(t)}.png`:'';
   const espnFace=id=>id?`https://a.espncdn.com/i/headshots/nfl/players/full/${encodeURIComponent(id)}.png`:'';
-  let oldCareer=null, oldSeasonLog=null, profileToken=0, boardObserver=null, renderWrapped=false;
+  let oldCareer=null, oldSeasonLog=null, profileToken=0, boardObserver=null, renderWrapped=false, grading=false;
   const weekRankCache=new Map(), scheduleCache=new Map();
 
   function playersList(){return typeof players!=='undefined'&&Array.isArray(players)?players:[]}
@@ -80,7 +80,7 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
     if(['K','DEF'].includes(pick.pos))valueScore=clamp(62+(sRank?Math.max(-12,18-sRank):0)+(Number(pick.round||1)>=10?10:0),35,92);
     else if(valueBasis)valueScore=clamp(55+(valueBasis-pickNo)*1.8,15,98);else valueScore=58;
     const projPct=player?clamp(Number(player.pct)||55,1,100):sRank?clamp(105-sRank*3,25,100):55;
-    const need=needScore(pick,prior,r,cfg),health=player&&Number.isFinite(Number(player.healthPct))?clamp(Number(player.healthPct),30,100):75,timing=timingScore(pick,player);
+    const need=needScore(pick,prior,r,cfg),health=player&&player.healthPct!=null&&Number.isFinite(Number(player.healthPct))?clamp(Number(player.healthPct),30,100):75,timing=timingScore(pick,player);
     const raw=valueScore*.40+projPct*.25+need/15*15+health*.10+timing;
     const score=Math.round(clamp(raw,35,99));
     const basis=adp?`Consensus ADP ${adp.avg.toFixed(1)} (${adp.n} source${adp.n===1?'':'s'})`:projRank?`Projection rank ${projRank}`:sRank?`${pick.pos==='DEF'?'D/ST':'K'} projection rank ${sRank}`:'No ADP/projection rank';
@@ -95,12 +95,14 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
   }
 
   function gradeLeagueBoard(){
-    const modal=document.querySelector('#leagueDraftMainModalV35'),table=modal?.querySelector('.leagueBoardV35'),b=board();if(!modal||!table||!b?.picks?.length)return;
+    const modal=document.querySelector('#leagueDraftMainModalV35'),table=modal?.querySelector('.leagueBoardV35'),b=board();if(!modal||!table||!b?.picks?.length||grading)return;
+    grading=true;boardObserver?.disconnect();
     const rankMap=projectionRanks(),r=roster(),cfg=league(),grades=new Map();for(const p of b.picks)grades.set(p,gradePick(p,b,rankMap,r,cfg));
     const headers=[...table.querySelectorAll('thead th')].slice(1);headers.forEach((th,i)=>{th.querySelector('.teamGradeV38')?.remove();const owner=b.owners?.[i];if(!owner)return;const g=teamGrade(owner,b,grades,r),box=document.createElement('div');box.className='teamGradeV38';box.innerHTML=`<span class="draftGradeBadgeV38 ${gradeClass(g.score)}"><strong>${g.letter}</strong> ${g.score}</span><small>team grade</small>`;th.appendChild(box)});
     const rounds=[...new Set((b.picks||[]).map(p=>Number(p.round)||1))].sort((a,b)=>a-b),by=new Map();for(const p of b.picks)by.set(`${Number(p.round)||1}|${p.owner}`,p);
     [...table.querySelectorAll('tbody tr')].forEach((tr,ri)=>{const round=rounds[ri]||Number(tr.firstElementChild?.textContent.replace(/\D/g,''))||1;[...tr.children].slice(1).forEach((td,ci)=>{const p=by.get(`${round}|${b.owners?.[ci]}`),card=td.querySelector('.leaguePickV35');if(!p||!card)return;card.querySelector('.draftGradeBadgeV38')?.remove();const g=grades.get(p),badge=document.createElement('span');badge.className=`draftGradeBadgeV38 ${gradeClass(g.score)}`;badge.title=`Pick ${g.pickNo}: ${g.basis}. Value ${g.valueScore}/100; projection ${g.projPct}/100; roster fit ${g.need}/15; health ${g.health}/100; timing ${g.timing}/10.`;badge.innerHTML=`<strong>${g.letter}</strong> ${g.score}`;card.appendChild(badge);const btn=card.querySelector('.leaguePickNameV35'),player=findPlayer(p);if(btn&&player){btn.dataset.v38Profile=player.id;btn.classList.add('clickableV35')}})});
     let explain=modal.querySelector('.gradeExplainV38');if(!explain){explain=document.createElement('div');explain.className='gradeExplainV38';const bar=modal.querySelector('.leagueBoardToolbarV35');bar?.insertAdjacentElement('afterend',explain)}if(explain)explain.textContent='Draft grades: 40% value vs imported consensus ADP (projection rank fallback), 25% projected positional strength, 15% roster fit, 10% availability, 10% positional/timing context. Team grade is a weighted average of picks with a roster-construction adjustment.';
+    grading=false;if(boardObserver)boardObserver.observe(modal,{childList:true,subtree:true});
   }
 
   function closeBlockingModals(){for(const id of ['leagueDraftMainModalV35','myTeamModalV35','compareModal','exploreModal','defenseModal','kickerModal'])document.querySelector('#'+id)?.classList.remove('open')}
@@ -124,7 +126,7 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
   }
   function adpText(id){const a=adpConsensus(id);return a?`${a.avg.toFixed(1)} avg${a.n>1?` · ${a.min.toFixed(0)}–${a.max.toFixed(0)}`:''}`:'—'}
   function threeYearAvg(id){const vals=[2023,2024,2025].map(y=>seasonPlayer(id,y)?.fantasy).filter(Number.isFinite);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
-  function availability(base){return Number.isFinite(Number(base?.healthPct))?Number(base.healthPct):null}
+  function availability(base){return base?.healthPct!=null&&Number.isFinite(Number(base.healthPct))?Number(base.healthPct):null}
   function fpFmt(v){return Number.isFinite(Number(v))?Number(v).toFixed(1):'—'}
 
   async function openProfile(id,tab='overview',weekYear=2025){
@@ -134,6 +136,7 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
     try{if(typeof ensureHistoricalViews==='function')await ensureHistoricalViews(false)}catch(e){console.warn('profile history hydrate failed',e)}if(token!==profileToken)return;
     const y25=seasonPlayer(base.id,2025),avg3=threeYearAvg(base.id),avail=availability(base),adp=adpText(base.id);
     const quick=`<div class="profileQuickV38"><div class="profileMetricV38"><b>${fpFmt(base.fantasy)}</b><small>2026 PROJECTED FP</small></div><div class="profileMetricV38"><b>#${base.posRank||'—'}</b><small>2026 POSITION RANK</small></div><div class="profileMetricV38"><b>${fpFmt(y25?.fantasy)}</b><small>2025 FP</small></div><div class="profileMetricV38"><b>${fpFmt(avg3)}</b><small>3-YEAR AVG FP</small></div><div class="profileMetricV38"><b>${avail==null?'—':Math.round(avail)+'%'}</b><small>AVAILABILITY</small></div><div class="profileMetricV38"><b>${adp}</b><small>IMPORTED ADP</small></div></div>`;
+    document.querySelector('#profileChromeV38')?.remove();
     const tabs=`<div class="profileTabsV38"><button class="btn" data-profile-tab="overview">Snapshot</button><button class="btn" data-profile-tab="yearly">Year by Year</button><button class="btn" data-profile-tab="weekly">Weekly Logs</button></div>`;
     hero.insertAdjacentHTML('afterend',`<div id="profileChromeV38">${quick}${tabs}</div>`);const chrome=document.querySelector('#profileChromeV38');chrome?.querySelectorAll('[data-profile-tab]').forEach(b=>b.onclick=()=>renderProfileTab(base,b.dataset.profileTab,weekYear));status.textContent='Projection, production, availability, ADP and weekly context in one profile.';renderProfileTab(base,tab,weekYear);
   }
@@ -141,7 +144,7 @@ document.write('<script src="https://cdn.jsdelivr.net/gh/sportomax1/fantasy-foot
   function renderProfileTab(base,tab,weekYear){setProfileTab(tab);if(tab==='yearly')renderYearly(base);else if(tab==='weekly')renderWeekly(base,weekYear);else renderSnapshot(base)}
   function renderSnapshot(base){
     const grid=document.querySelector('#careerGrid'),rows=[2021,2022,2023,2024,2025].map(y=>seasonPlayer(base.id,y)).filter(Boolean),latest=seasonPlayer(base.id,2025),best=rows.length?[...rows].sort((a,b)=>Number(b.fantasy||0)-Number(a.fantasy||0))[0]:null,trend=rows.length>=2?Number(rows.at(-1).fantasy||0)-Number(rows.at(-2).fantasy||0):null,healthYears=base.healthYears||[],eligible=healthYears.length,missed=healthYears.reduce((a,h)=>a+Math.max(0,Number(h.sched||17)-Number(h.gp||0)),0);if(!grid)return;
-    grid.innerHTML=`<div class="profileOverviewV38"><section class="profilePanelV38"><h3>Current draft context</h3><div class="profileListV38"><span>2026 projection</span><b>${fpFmt(base.fantasy)} FP</b><span>Position rank</span><b>#${base.posRank||'—'} ${esc(base.pos)}</b><span>Team depth</span><b>${base.depthOrder?`#${base.depthOrder} ${esc(base.depthPosition||base.pos)}`:'—'}</b><span>Imported ADP</span><b>${adpText(base.id)}</b><span>2025 production</span><b>${latest?fpFmt(latest.fantasy)+' FP':'—'}</b></div></section><section class="profilePanelV38"><h3>History + availability</h3><div class="profileListV38"><span>Best season in 2021–25</span><b>${best?best.year+' · '+fpFmt(best.fantasy)+' FP':'—'}</b><span>Latest YoY change</span><b>${trend==null?'—':`${trend>=0?'+':''}${trend.toFixed(1)} FP`}</b><span>Eligible health seasons</span><b>${eligible||'—'}</b><span>Games missed in eligible seasons</span><b>${eligible?missed:'—'}</b><span>Availability</span><b>${availability(base)==null?'—':Math.round(availability(base))+'%'}</b></div></section></div>`;
+    grid.innerHTML=`<div class="profileOverviewV38"><section class="profilePanelV38"><h3>Current draft context</h3><div class="profileListV38"><span>2026 projection</span><b>${fpFmt(base.fantasy)} FP</b><span>Position rank</span><b>#${base.posRank||'—'} ${esc(base.pos)}</b><span>Team depth</span><b>${base.depthOrder?`#${base.depthOrder} ${esc(base.depthPosition||base.pos)}`:'—'}</b><span>Imported ADP</span><b>${adpText(base.id)}</b><span>2025 production</span><b>${latest?fpFmt(latest.fantasy)+' FP':'—'}</b></div></section><section class="profilePanelV38"><h3>History + availability</h3><div class="profileListV38"><span>Best season in 2021–25</span><b>${best?(best.season||best.year)+' · '+fpFmt(best.fantasy)+' FP':'—'}</b><span>Latest YoY change</span><b>${trend==null?'—':`${trend>=0?'+':''}${trend.toFixed(1)} FP`}</b><span>Eligible health seasons</span><b>${eligible||'—'}</b><span>Games missed in eligible seasons</span><b>${eligible?missed:'—'}</b><span>Availability</span><b>${availability(base)==null?'—':Math.round(availability(base))+'%'}</b></div></section></div>`;
   }
   function renderYearly(base){
     const grid=document.querySelector('#careerGrid');if(!grid)return;const years=[2021,2022,2023,2024,2025,2026],rows=years.map(y=>seasonPlayer(base.id,y)||(y===2026?base:null)).filter(Boolean),vals=new Map(rows.map(r=>[r.season||r.year,r]));let prev=null;
