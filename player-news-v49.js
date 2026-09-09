@@ -1,2 +1,2 @@
-/* Fantasy Lens v49 compatibility shim — load fixed ESPN player news v50. */
-document.write('<script src="./player-news-v50.js?v=50"><\/script>');
+/* Fantasy Lens v49 compatibility shim — load corrected ESPN player news v51. */
+document.write('<script src="./player-news-v51.js?v=51"><\/script>');
