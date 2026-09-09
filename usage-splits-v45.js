@@ -3,6 +3,7 @@
   'use strict';
 
   const CURRENT_YEAR=2026;
+  const PREVIOUS_YEAR=2025;
   const TEAM_ORDER=['ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND','JAX','KC','LV','LAC','LAR','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF','TB','TEN','WAS'];
   const TEAM_ALIAS={WSH:'WAS',WFT:'WAS',LA:'LAR',STL:'LAR',OAK:'LV',SD:'LAC',JAC:'JAX'};
   const state={pos:'RB',metric:'usage',search:'',sort:'team',history:'all'};
@@ -79,6 +80,12 @@
     if(pos==='QB')return'pass attempts';
     return'targets';
   }
+  function volumeUnit(pos=state.pos,metricUsed=state.metric){
+    if(state.metric==='fantasy'||metricUsed==='fantasy-fallback')return'FP';
+    if(pos==='RB')return'opp';
+    if(pos==='QB')return'att';
+    return'tgt';
+  }
   function roleLabel(pos,top,top2,entries){
     if(!entries.length)return'No data';
     if(pos==='RB')return top>=68?'Workhorse':top>=55?'Lead':top2>=82?'1–2 split':'Committee';
@@ -107,6 +114,22 @@
     if(state.sort==='lead')filtered.sort((a,b)=>(b.years[CURRENT_YEAR]?.top||0)-(a.years[CURRENT_YEAR]?.top||0)||a.team.localeCompare(b.team));
     else if(state.sort==='committee')filtered.sort((a,b)=>(a.years[CURRENT_YEAR]?.top||999)-(b.years[CURRENT_YEAR]?.top||999)||a.team.localeCompare(b.team));
     return{years,rows:filtered};
+  }
+  function volumeRank(team,year){
+    const ranked=TEAM_ORDER.map(t=>({team:t,total:teamBreakdown(t,year).total})).sort((a,b)=>b.total-a.total||a.team.localeCompare(b.team));
+    const i=ranked.findIndex(x=>x.team===team);return i>=0?i+1:null;
+  }
+  function vacatedShare(team){
+    const prior=teamBreakdown(team,PREVIOUS_YEAR);if(!prior.total)return 0;
+    let lost=0;
+    for(const e of prior.entries){const current=currentPlayerMatch(e.r);if(!current||playerTeam(current)!==team)lost+=e.value}
+    return lost/prior.total*100;
+  }
+  function volumeHtml(breakdown,year){
+    if(!breakdown.entries.length)return'';
+    const unit=volumeUnit(state.pos,breakdown.metricUsed),rank=volumeRank(breakdown.team,year),value=breakdown.metricUsed==='fantasy-fallback'||state.metric==='fantasy'?breakdown.total.toFixed(0):Math.round(breakdown.total);
+    const vac=Number(year)===CURRENT_YEAR?vacatedShare(breakdown.team):0;
+    return`<div class="v42vol"><span class="v42pill">VOL ${value} ${unit}</span>${rank?`<span class="v42pill">NFL #${rank}</span>`:''}${vac>=1?`<span class="v42pill vac">${vac.toFixed(0)}% vacated</span>`:''}</div>`;
   }
 
   function installStyles(){
@@ -137,7 +160,7 @@
     if(!e.length)return'<div class="splitCellV41"><div class="splitEmptyV41">No data</div></div>';
     const bars=e.slice(0,6).map(x=>`<span class="splitSegV41" style="width:${Math.max(0,x.share).toFixed(2)}%" title="${esc(playerName(x.r))}: ${x.share.toFixed(1)}%"></span>`).join('');
     const cls=/Committee|Spread|split/.test(breakdown.label)?'committee':'';
-    return`<div class="splitCellV41"><div class="splitCellTopV41"><span class="splitReadV41 ${cls}">${esc(breakdown.label)}</span>${breakdown.metricUsed==='fantasy-fallback'?'<span class="splitFallbackV41">FP-share fallback</span>':''}</div><div class="splitPeopleV41">${e.slice(0,4).map((x,i)=>playerRow(x,i,year)).join('')}</div><div class="splitBarV41">${bars}</div></div>`;
+    return`<div class="splitCellV41">${volumeHtml(breakdown,year)}<div class="splitCellTopV41"><span class="splitReadV41 ${cls}">${esc(breakdown.label)}</span>${breakdown.metricUsed==='fantasy-fallback'?'<span class="splitFallbackV41">FP-share fallback</span>':''}</div><div class="splitPeopleV41">${e.slice(0,4).map((x,i)=>playerRow(x,i,year)).join('')}</div><div class="splitBarV41">${bars}</div></div>`;
   }
 
   function render(){
@@ -154,7 +177,7 @@
         <input class="field" id="splitSearchV41" placeholder="Search team or player across years" value="${esc(state.search)}">
       </div>
       <div class="splitSummaryV41"><span><b>${rows.length}</b> teams shown</span><span><b>${years.length}</b> season columns</span><span><b>${avgLead.toFixed(0)}%</b> avg 2026 lead share</span><span><b>${splitCount}</b> 2026 ${state.pos==='QB'?'non-locked QB rooms':'split rooms'}</span></div>
-      <p class="splitHintV41">Team is always column 1; every season is its own column. ${state.pos}1–${state.pos}4 are ranked by that season's ${metricDescription()} and retain the player/team identity from that specific year. ${state.pos==='QB'?'QB share is based on team pass attempts, so backup starts, injuries, benchings, and rotations are visible.':'Historical team changes appear naturally across columns.'}</p>
+      <p class="splitHintV41">Team is always column 1; every season is its own column. ${state.pos}1–${state.pos}4 are ranked by that season's ${metricDescription()} and retain the player/team identity from that specific year. ${state.pos==='QB'?'QB share is based on team pass attempts, so backup starts, injuries, benchings, and rotations are visible.':'Historical team changes appear naturally across columns.'} Volume and NFL rank use the same selected metric; the 2026 column also shows the share of 2025 workload vacated by players no longer on that team.</p>
       <div class="splitMatrixWrapV41"><table class="splitMatrixV41"><thead><tr><th>Team</th>${years.map(y=>`<th><div class="splitYearHeadV41"><b>${y}</b><small>${y===CURRENT_YEAR?'PROJECTION':'ACTUAL'}</small></div></th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr><td><div class="splitTeamV41"><img src="${teamLogo(row.team)}" onerror="this.style.display='none'"><span>${row.team}</span></div></td>${years.map(y=>`<td>${yearCell(row.years[y],y)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 
     root.querySelectorAll('[data-split-pos]').forEach(b=>b.onclick=()=>{state.pos=b.dataset.splitPos;render()});
@@ -183,7 +206,7 @@
     const teamMenu=[...nav.querySelectorAll('.v42menu')].find(m=>/Team/.test(m.querySelector(':scope > .btn')?.textContent||''));
     if(!teamMenu)return false;
     const pop=teamMenu.querySelector('.v42pop');if(!pop)return false;
-    let rb=pop.querySelector('[data-a="rb"]'),wr=pop.querySelector('[data-a="wr"]');
+    const rb=pop.querySelector('[data-a="rb"]')||pop.querySelector('[data-a="usageSplits"]'),wr=pop.querySelector('[data-a="wr"]');
     if(rb){rb.textContent='Usage Splits (RB / WR / TE / QB)';rb.dataset.a='usageSplits';rb.onclick=e=>{e.stopPropagation();teamMenu.classList.remove('open');open('RB')}}
     if(wr)wr.remove();
     return true;
