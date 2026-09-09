@@ -35,7 +35,6 @@
       setTimeout(enhance,20);
     };
 
-    // Split analysis belongs on the main nav now, not as separate Team-menu entries.
     for(const menu of nav.querySelectorAll('.v42menu')){
       const title=menu.querySelector(':scope > .btn')?.textContent||'';
       if(!/^Team\b/i.test(title))continue;
@@ -71,9 +70,9 @@
     const col=years.indexOf(cfg.year)+1;
     const tbody=table.querySelector('tbody');
     if(!tbody)return;
-    const rows=[...tbody.querySelectorAll(':scope > tr')];
-    const decorated=rows.map((row,i)=>({
-      row,i,
+    const currentRows=[...tbody.querySelectorAll(':scope > tr')];
+    const decorated=currentRows.map(row=>({
+      row,
       share:leadShare(row,col),
       team:(row.children[0]?.textContent||'').trim()
     }));
@@ -86,7 +85,7 @@
       return diff||a.team.localeCompare(b.team);
     });
     const wanted=decorated.map(x=>x.row);
-    if(wanted.some((r,i)=>r!==rows[i])){
+    if(wanted.some((r,i)=>r!==currentRows[i])){
       const frag=document.createDocumentFragment();
       wanted.forEach(r=>frag.appendChild(r));
       tbody.appendChild(frag);
@@ -96,6 +95,8 @@
       const active=years[i]===cfg.year;
       th.classList.toggle('splitSortYearActiveV48',active);
       th.title=`Sort by ${years[i]} lead share`;
+      const yearText=th.querySelector('.splitYearHeadV41 b');
+      if(yearText)yearText.dataset.sortArrow=active?(cfg.dir==='desc'?' ↓':' ↑'):'';
       th.onclick=()=>{
         const y=years[i];
         if(cfg.year===y)cfg.dir=cfg.dir==='desc'?'asc':'desc';
@@ -169,7 +170,7 @@
       #splitShareBtnV48{white-space:nowrap}
       .splitSortControlsV48{display:inline-flex;gap:6px;align-items:center}
       .splitSortYearActiveV48{background:#dce8e1!important;box-shadow:inset 0 -3px 0 #17324a}
-      .splitSortYearActiveV48 .splitYearHeadV41 b::after{content:' ↓';font-size:8px}
+      .splitYearHeadV41 b::after{content:attr(data-sort-arrow);font-size:8px}
       @media(max-width:760px){.splitSortControlsV48{width:100%}.splitSortControlsV48 .field{flex:1;min-width:0}}
     `;document.head.appendChild(s);
   }
