@@ -1,9 +1,110 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fantasy Lens — 2026 Draft Intelligence</title><link rel="stylesheet" href="./fantasy-football.css?v=21"></head><body><div class="app"><header class="appbar"><div class="appbarInner"><div class="appTitle"><div><small>2026 DRAFT INTELLIGENCE</small><b>Fantasy Lens</b></div></div><button class="btn run" id="run">LOAD DATA</button><button class="btn" id="settingsBtn">Scoring</button><button class="btn" id="importDraftBtn">Import Draft</button><button class="btn" id="dataLabBtn">API Sources</button><button class="btn" id="rawApiBtn">API Results</button><span class="cacheState" id="cacheState">Cache: checking…</span></div></header><div class="draftShell"><select class="field" id="year" style="display:none"></select><div class="viewNav" id="viewNav"><button class="btn on" data-view="draft">Draft Board</button><button class="btn" data-view="overview">Overview</button><button class="btn" data-view="matrix">Year Matrix</button><button class="btn" data-view="health">Health</button><button class="btn" data-view="weekly">Weekly Matchups</button><button class="btn" id="exploreBtn">Depth</button><button class="btn dataViewBtn" id="defenseBtn">Defense</button><button class="btn dataViewBtn" id="kickerBtn">Kicker</button></div><div class="draftFilters"><input class="field" id="search" placeholder="Search player or team"><div class="positions" id="positions"></div><div class="teamSelect" id="teamSelect"><button class="field teamSelectBtn" id="teamFilterBtn" type="button"><span id="teamFilterIcon"></span><span id="teamFilterText">All Teams</span> ▾</button><div class="teamMenu" id="teamMenu"></div></div><select class="field" id="minPct"><option value="0">All ranks</option><option value="50">50th+ %ile</option><option value="75">75th+ %ile</option><option value="90">90th+ %ile</option><option value="95">95th+ %ile</option></select><label class="toggleControl"><input type="checkbox" id="hideInactive" checked> Hide inactive</label><label class="toggleControl"><input type="checkbox" id="hideDrafted"> Hide drafted</label><label class="toggleControl"><input type="checkbox" id="draftedOnly"> Drafted only</label><button class="btn resetBtn" id="resetDraft" type="button">Reset Draft</button></div><div class="draftMeta"><span>Current-year drafting first • historical production + availability underneath</span><span id="viewMeta">2026 projections</span></div></div><div class="progress" id="progress"><div class="pr"><strong id="phase">Loading</strong><span id="pct">0%</span></div><div class="bar"><div id="bar"></div></div><div class="debug" id="debug"></div></div><div class="status"><span><b id="count">0</b> current draft candidates</span><span id="stamp">2026 draft board</span></div><div class="empty" id="empty"><b>Load data once before the draft</b>Loads 2018–2025 actuals, 2026 projections, health/game history and the full NFL depth directory. IndexedDB restores it next session.</div><div id="bestStrip"></div><div class="matrixTools" id="matrixTools" style="display:none"></div><div class="tablewrap" id="tablewrap"></div><div class="cards" id="cards"></div><div class="comparebar" id="compareBar"><div class="comparechips" id="compareChips"></div><button class="btn" id="compareBtn">Compare</button></div><div class="modal" id="settingsModal"><div class="modalbox"><div class="modalhead"><h2>Scoring Model</h2><button class="btn close" id="closeSettings">×</button></div><div class="careerbody"><p style="color:var(--muted);font-size:11px">Half-PPR by default. Rankings recalculate locally.</p><div class="settingsgrid"><label>Reception<input class="field score" id="sRec" type="number" step=".1" value=".5"></label><label>Passing TD<input class="field score" id="sPassTD" type="number" step=".5" value="4"></label><label>Passing yards / point<input class="field score" id="sPassYds" type="number" value="25"></label><label>Interception<input class="field score" id="sInt" type="number" step=".5" value="-2"></label><label>Rush/Rec TD<input class="field score" id="sTD" type="number" step=".5" value="6"></label><label>Rush/Rec yards / point<input class="field score" id="sYds" type="number" value="10"></label><label>Fumble lost<input class="field score" id="sFum" type="number" step=".5" value="-2"></label></div></div></div></div><div class="modal" id="compareModal"><div class="modalbox"><div class="modalhead"><h2>Player Comparison</h2><button class="btn close" id="closeCompare">×</button></div><div class="careerbody" id="compareBody"></div></div></div><div class="modal" id="exploreModal"><div class="modalbox"><div class="modalhead"><div><h2>Depth Charts</h2><small style="color:#aebdca">Full league • drafted players gray automatically</small></div><button class="btn close" id="closeExplore">×</button></div><div class="careerbody"><div id="depthLab" class="labPane"><div class="depthToolbar"><button class="btn run" id="runDepth">Refresh Depth</button><button class="btn depthMode on" data-depth-mode="grouped">Grouped Positions</button><button class="btn depthMode" data-depth-mode="slots">Each Position #</button><input class="field" id="depthSearch" placeholder="Search team or player"><span class="loadMeta">32 teams · QB / RB / WR / TE</span></div><div class="careerstatus" id="depthStatus">Loads the league-wide Sleeper player/depth directory and caches it locally.</div><div id="depthResults" class="depthScroll"></div></div><div id="projLab" class="labPane" style="display:none!important"><div class="labControls"><select class="field" id="projPos"><option>ALL</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option></select><button class="btn run" id="runProj">Load 2026 ESPN Projections</button></div><div class="careerstatus" id="projStatus">Reads projected records from ESPN Fantasy where statSourceId = 1.</div><div id="projResults"></div></div></div></div></div><div class="modal" id="dataLabModal"><div class="modalbox"><div class="modalhead"><div><h2>API Sources + Test Bench</h2><small style="color:#aebdca">Fantasy data sources and diagnostics</small></div><button class="btn close" id="closeDataLab">×</button></div><div class="careerbody"><div class="dataGrid"><section class="dataCard"><h3>Sleeper Player Directory</h3><span class="badge">OFFICIAL</span><span class="badge">NO AUTH</span><p>Identity, team, position, active status and depth metadata.</p><div class="apiLine"><code>https://api.sleeper.app/v1/players/nfl</code><button class="btn copyApi">Copy</button></div></section><section class="dataCard"><h3>Sleeper Actual Stats</h3><p>Season and weekly actual stats.</p><div class="apiLine"><code>https://api.sleeper.com/stats/nfl/2025?season_type=regular</code><button class="btn copyApi">Copy</button></div></section><section class="dataCard"><h3>Sleeper Projections</h3><p>Season and weekly projections.</p><div class="apiLine"><code>https://api.sleeper.com/projections/nfl/2026?season_type=regular</code><button class="btn copyApi">Copy</button></div></section><section class="dataCard"><h3>Sleeper Depth</h3><div class="apiLine"><code>https://api.sleeper.com/players/nfl/PHI/depth_chart</code><button class="btn copyApi">Copy</button></div></section><section class="dataCard"><h3>ESPN</h3><span class="badge">CURRENT APP SOURCE</span><p>Historical actuals and 2026 projections.</p></section></div><section class="dataCard testBench"><h3>Quick API Test Bench</h3><div class="testControls"><select class="field" id="apiPreset"><option value="players">Sleeper Players</option><option value="stats">2025 Season Stats</option><option value="proj">2026 Season Projections</option><option value="weekproj">2026 Week Projection</option><option value="depth">Team Depth Chart</option><option value="trending">Trending Adds</option></select><input class="field" id="apiArg" placeholder="Team / week" value="PHI"><input class="field" id="apiYear" value="2026" inputmode="numeric"><button class="btn run" id="runApiTest">RUN TEST</button></div><div class="careerstatus" id="apiTestStatus">Choose a preset.</div><pre id="apiOutput">No request run yet.</pre></section></div></div></div><div class="modal" id="importDraftModal"><div class="modalbox"><div class="modalhead"><div><h2>Import Draft Results</h2><small style="color:#aebdca">Paste copied draft text or drop TXT/CSV</small></div><button class="btn close" id="closeImportDraft">×</button></div><div class="careerbody"><div class="draftDropZone" id="draftDropZone"><textarea class="field draftImportText" id="draftImportText" placeholder="Paste draft results here. First Last and Last, First formats are both recognized."></textarea><div class="webHint">Smart detection recognizes First Last, Last, First, suffixes, punctuation and noisy draft-result lines.</div></div><div class="draftImportActions"><button class="btn run" id="parseDraftBtn">Detect Players + Mark Drafted</button><button class="btn" id="clearDraftImport">Clear Text</button><span class="loadMeta" id="draftImportCount">0 currently drafted</span></div><div class="draftImportStatus" id="draftImportStatus">Nothing parsed yet.</div></div></div></div><div class="modal" id="rawApiModal"><div class="modalbox"><div class="modalhead"><h2>API Results</h2><button class="btn close" id="closeRawApi">×</button></div><div class="careerbody"><pre class="rawApiLog" id="rawApiLog">No API calls yet.</pre></div></div></div><div class="modal" id="careerModal"><div class="modalbox"><div class="modalhead"><h2 id="careerTitle">Career</h2><button class="btn close" id="closeCareer">×</button></div><div class="careerbody"><div id="careerHero"></div><div class="careerstatus" id="careerStatus"></div><div class="careergrid" id="careerGrid"></div></div></div></div><div class="note">2026 draft intelligence • ESPN + Sleeper • Historical actuals + current projections</div></div><script src="./fantasy-football.js?v=49"></script><script>
-(function(){
- function n(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
- function aliases(name){const clean=n(name),parts=clean.split(' ').filter(Boolean),out=new Set([clean]);if(parts.length>1)out.add(parts[parts.length-1]+' '+parts.slice(0,-1).join(' '));return [...out]}
- function smartParse(text){const matched=new Map(),unmatched=[],lookup=(window.players||players||[]).map(p=>({p,a:aliases(p.name)}));for(const raw of String(text||'').split(/\r?\n/)){const line=raw.trim();if(!line)continue;const ln=' '+n(line)+' ';let hit=false;for(const x of lookup){if(x.a.some(a=>a.length>=5&&ln.includes(' '+a+' '))){matched.set(String(x.p.id),x.p);hit=true}}if(!hit)unmatched.push(line)}return{matched:[...matched.values()],unmatched}}
- async function fixedImport(){const status=document.querySelector('#draftImportStatus'),text=document.querySelector('#draftImportText').value;if(!text.trim()){status.textContent='Paste draft results first.';return}if(!players.length){status.textContent='Player data is not loaded yet. Loading it now…';document.querySelector('#run').click();for(let i=0;i<60&&!players.length;i++)await new Promise(r=>setTimeout(r,500));if(!players.length){status.textContent='Could not load the player database. Tap LOAD DATA, then retry the import.';return}}const res=smartParse(text);for(const p of res.matched)draftedIds.add(String(p.id));saveDrafted();render();if(depthData&&document.querySelector('#exploreModal').classList.contains('open'))renderDepthMatrix(depthData);const names=res.matched.map(p=>p.name+' ('+p.pos+' '+p.team+')');status.textContent='Matched '+res.matched.length+' player'+(res.matched.length===1?'':'s')+' and marked drafted.\n\n'+(names.length?'MATCHED:\n'+names.join('\n'):'No player names matched.')+(res.unmatched.length?'\n\nUnmatched lines ('+res.unmatched.length+'):\n'+res.unmatched.slice(0,30).join('\n'):'');}
- window.parseDraftText=smartParse;window.applyDraftImport=fixedImport;document.querySelector('#parseDraftBtn').onclick=fixedImport;
-})();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1018">
+  <title>Sports Tools</title>
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#070b11;
+      --panel:#0f1622;
+      --panel2:#151f2d;
+      --line:#253247;
+      --text:#f5f7fb;
+      --muted:#94a3b8;
+      --accent:#f4b400;
+      --accent2:#ffd45c;
+      --blue:#5aa7ff;
+      --green:#55d68c;
+      --shadow:0 20px 55px #0007;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 10% 0%,#17305566 0,transparent 34%),
+        radial-gradient(circle at 90% 5%,#5a420f55 0,transparent 31%),
+        linear-gradient(180deg,#090e16 0%,#070b11 100%);
+    }
+    a{color:inherit}
+    .shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:56px 0 70px}
+    .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;margin-bottom:30px}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--accent2);margin-bottom:10px}
+    .eyebrow::before{content:"";width:24px;height:3px;border-radius:10px;background:var(--accent)}
+    h1{margin:0;font-size:clamp(38px,7vw,74px);line-height:.95;letter-spacing:-.055em}
+    .hero p{margin:16px 0 0;color:var(--muted);font-size:16px;line-height:1.6;max-width:680px}
+    .count{flex:0 0 auto;border:1px solid var(--line);background:#0c131ecc;border-radius:16px;padding:14px 18px;text-align:center;box-shadow:var(--shadow)}
+    .count b{display:block;font-size:26px}.count span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+    .card{
+      position:relative;display:flex;flex-direction:column;min-height:320px;padding:22px;
+      text-decoration:none;background:linear-gradient(180deg,var(--panel2),var(--panel));
+      border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 10px 30px #0004;
+      transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+    }
+    .card::after{content:"";position:absolute;inset:auto -70px -100px auto;width:210px;height:210px;border-radius:50%;background:var(--glow,#ffffff10);filter:blur(2px);pointer-events:none}
+    .card:hover,.card:focus-visible{transform:translateY(-4px);border-color:#52627a;box-shadow:var(--shadow);outline:none}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .icon{display:grid;place-items:center;width:52px;height:52px;border-radius:15px;background:#090f18;border:1px solid #2a3850;font-size:26px}
+    .tag{font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;padding:6px 8px;border-radius:999px;border:1px solid #34445e;color:#cbd5e1;background:#0a1019}
+    .card h2{margin:26px 0 8px;font-size:24px;letter-spacing:-.025em}
+    .card p{margin:0;color:var(--muted);font-size:14px;line-height:1.55}
+    .features{display:flex;gap:7px;flex-wrap:wrap;margin-top:18px}
+    .features span{font-size:10px;color:#c5d0de;background:#0a1019;border:1px solid #26364c;border-radius:7px;padding:5px 7px}
+    .open{margin-top:auto;padding-top:26px;display:flex;align-items:center;justify-content:space-between;font-weight:900;font-size:13px}
+    .arrow{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--accent);color:#131313;font-size:18px;transition:transform .18s ease}
+    .card:hover .arrow,.card:focus-visible .arrow{transform:translateX(3px)}
+    .draft{--glow:#f4b40022}.tracker{--glow:#55d68c22}.api{--glow:#5aa7ff22}
+    .footer{margin-top:26px;padding-top:18px;border-top:1px solid #1b2738;color:#718096;font-size:11px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    @media(max-width:900px){.grid{grid-template-columns:1fr}.card{min-height:245px}.hero{align-items:flex-start}.count{display:none}}
+    @media(max-width:560px){.shell{width:min(100% - 22px,1180px);padding:34px 0 50px}.hero{margin-bottom:20px}.card{padding:18px;border-radius:17px}.card h2{margin-top:20px}}
+    @media(prefers-reduced-motion:reduce){.card,.arrow{transition:none}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Sportomax Sports</div>
+        <h1>Sports Tools</h1>
+        <p>Choose a dedicated single-page tool. Each app runs independently so the draft workflow, live weekend tracking, and API testing stay separated and easier to maintain.</p>
+      </div>
+      <div class="count"><b>3</b><span>Dedicated tools</span></div>
+    </section>
+
+    <section class="grid" aria-label="Sports tools">
+      <a class="card draft" href="./fantasy-lens.html">
+        <div class="top"><div class="icon" aria-hidden="true">🏈</div><span class="tag">Draft</span></div>
+        <h2>Fantasy Lens</h2>
+        <p>Draft intelligence workspace with rankings, historical production, projections, depth information, usage splits, player comparisons, and draft support.</p>
+        <div class="features"><span>Draft Board</span><span>Projections</span><span>Usage Splits</span><span>Player News</span></div>
+        <div class="open"><span>Open Fantasy Lens</span><span class="arrow">→</span></div>
+      </a>
+
+      <a class="card tracker" href="./weekend-tracker.html">
+        <div class="top"><div class="icon" aria-hidden="true">📊</div><span class="tag">Live</span></div>
+        <h2>Weekend Tracker</h2>
+        <p>Multi-league fantasy weekend dashboard for monitoring your rosters, live scoring pace, game context, and league leaders.</p>
+        <div class="features"><span>League Matrix</span><span>Live Scores</span><span>Leaders</span><span>Multi-League</span></div>
+        <div class="open"><span>Open Weekend Tracker</span><span class="arrow">→</span></div>
+      </a>
+
+      <a class="card api" href="./roster-api-test.html">
+        <div class="top"><div class="icon" aria-hidden="true">🔌</div><span class="tag">Developer</span></div>
+        <h2>Roster API Lab</h2>
+        <p>Dedicated test harness for inspecting fantasy roster access and provider behavior without mixing experimental API work into the main tools.</p>
+        <div class="features"><span>Sleeper</span><span>ESPN</span><span>Yahoo</span><span>Raw API</span></div>
+        <div class="open"><span>Open API Lab</span><span class="arrow">→</span></div>
+      </a>
+    </section>
+
+    <footer class="footer">
+      <span>sports / main</span>
+      <span>Dedicated SPA launcher</span>
+    </footer>
+  </main>
+</body>
+</html>
