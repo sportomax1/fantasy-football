@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b0e12">
 <title>Fantasy Weekend Tracker</title>
-<link rel="stylesheet" href="weekend-tracker.css?v=20260909b">
+<link rel="stylesheet" href="weekend-tracker.css?v=20260909c">
+<link rel="stylesheet" href="weekend-tracker-leaders.css?v=20260909c">
 </head>
 <body>
 <div class="app">
@@ -22,6 +23,7 @@
     <div class="searchrow">
       <div class="searchwrap"><input id="playerSearch" class="field" autocomplete="off" placeholder="Type a player name, e.g. Lamar Jackson"><div id="searchMenu" class="searchmenu"></div></div>
       <span id="playerStatus" class="statuspill">Players: loading…</span>
+      <div class="viewtabs"><button id="matrixViewBtn" class="viewtab on">Matrix</button><button id="leadersViewBtn" class="viewtab">Leaders</button></div>
     </div>
   </header>
   <main class="main">
@@ -29,6 +31,12 @@
     <section id="matrixShell" class="matrixShell" style="display:none">
       <div class="matrixToolbar"><b>Weekend Matrix</b><span id="dataStatus" class="statuspill">Stats not loaded</span><span class="statuspill">Cell color = fantasy pace · bar = game time left</span><div class="right"><label class="statuspill">Bench rows <select id="benchCount" class="field"></select></label><button id="reloadPlayers" class="btn small">Reload Players</button></div></div>
       <div class="matrixScroll"><table class="matrix" id="matrix"></table></div>
+    </section>
+    <section id="leadersView" class="leadersView">
+      <div class="leadersShell">
+        <div class="leadersToolbar"><b>League Leaders</b><span class="statuspill">All rostered players · highest fantasy points to lowest inside each position lane</span><div class="right"><label class="statuspill">League <select id="leadersLeagueFilter" class="field"><option value="all">All Leagues</option></select></label></div></div>
+        <div id="leadersLanes" class="leaderLanes"></div>
+      </div>
     </section>
   </main>
 </div>
@@ -40,8 +48,9 @@
 <div id="scoringModal" class="modal"><div class="modalbox"><div class="modalhead"><h2 id="scoringTitle">Scoring</h2><button class="btn small" data-close="scoringModal">×</button></div><div class="modalbody"><div class="scoregrid" id="scoreGrid"></div><div style="display:flex;gap:8px;margin-top:12px"><button id="saveScoring" class="btn primary">Save Scoring</button></div></div></div></div>
 <div id="toast" class="toast"></div>
 
-<script src="weekend-tracker-core.js?v=20260909b"></script>
-<script src="weekend-tracker-ui.js?v=20260909b"></script>
-<script src="weekend-tracker-data.js?v=20260909b"></script>
+<script src="weekend-tracker-core.js?v=20260909c"></script>
+<script src="weekend-tracker-ui.js?v=20260909c"></script>
+<script src="weekend-tracker-data.js?v=20260909c"></script>
+<script src="weekend-tracker-leaders.js?v=20260909c"></script>
 </body>
 </html>
