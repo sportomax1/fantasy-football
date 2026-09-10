@@ -1,1 +1,47 @@
-PLACEHOLDER
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0e12">
+<title>Fantasy Weekend Tracker</title>
+<link rel="stylesheet" href="weekend-tracker.css?v=20260909b">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="toprow">
+      <div class="brand"><div class="logo">🏈</div><div><small>FANTASY WEEKEND</small><b>League Matrix</b></div></div>
+      <div class="controls">
+        <select id="season" class="field desktop" aria-label="Season"></select>
+        <select id="week" class="field" aria-label="Week"></select>
+        <button id="refresh" class="btn primary">↻ <span class="desktop">Refresh</span></button>
+        <button id="addLeague" class="btn">+ League</button>
+      </div>
+    </div>
+    <div class="searchrow">
+      <div class="searchwrap"><input id="playerSearch" class="field" autocomplete="off" placeholder="Type a player name, e.g. Lamar Jackson"><div id="searchMenu" class="searchmenu"></div></div>
+      <span id="playerStatus" class="statuspill">Players: loading…</span>
+    </div>
+  </header>
+  <main class="main">
+    <div id="emptyStart" class="emptyStart" style="display:none"><h1>Start with your leagues.</h1><p>Create each fantasy team, then type player names above and assign them into the roster matrix. No bulk imports, no draft parsing.</p><button class="btn primary" id="emptyAddLeague">+ Create First League</button></div>
+    <section id="matrixShell" class="matrixShell" style="display:none">
+      <div class="matrixToolbar"><b>Weekend Matrix</b><span id="dataStatus" class="statuspill">Stats not loaded</span><span class="statuspill">Cell color = fantasy pace · bar = game time left</span><div class="right"><label class="statuspill">Bench rows <select id="benchCount" class="field"></select></label><button id="reloadPlayers" class="btn small">Reload Players</button></div></div>
+      <div class="matrixScroll"><table class="matrix" id="matrix"></table></div>
+    </section>
+  </main>
+</div>
+
+<div id="leagueModal" class="modal"><div class="modalbox"><div class="modalhead"><h2 id="leagueModalTitle">Add League</h2><button class="btn small" data-close="leagueModal">×</button></div><div class="modalbody"><div class="formgrid"><label>League / Team Name<input id="leagueName" class="field" placeholder="Work League"></label><label>Platform<select id="leaguePlatform" class="field"><option>Yahoo</option><option>ESPN</option><option>Sleeper</option><option>NFL</option><option>Other</option></select></label><label>Scoring Preset<select id="leaguePreset" class="field"><option value="half">Half PPR</option><option value="ppr">Full PPR</option><option value="standard">Standard</option></select></label><label>Flex Slot<select id="leagueFlexType" class="field"><option value="flex">FLEX · RB/WR/TE</option><option value="superflex">SUPERFLEX · QB/RB/WR/TE</option><option value="none">No flex starter</option></select></label><label>Note<input id="leagueNote" class="field" placeholder="Optional"></label></div><div style="display:flex;gap:8px;margin-top:12px"><button id="saveLeague" class="btn primary">Save League</button><button id="deleteLeague" class="btn danger" style="display:none">Delete</button></div></div></div></div>
+
+<div id="assignModal" class="modal"><div class="modalbox"><div class="modalhead"><h2>Assign Player</h2><button class="btn small" data-close="assignModal">×</button></div><div class="modalbody"><div id="assignHero" class="assignHero"></div><div class="formgrid"><label>League<select id="assignLeague" class="field"></select></label><label>Roster Slot<select id="assignSlot" class="field"></select></label></div><div style="display:flex;gap:8px;margin-top:12px"><button id="saveAssignment" class="btn primary">Assign Player</button></div></div></div></div>
+
+<div id="scoringModal" class="modal"><div class="modalbox"><div class="modalhead"><h2 id="scoringTitle">Scoring</h2><button class="btn small" data-close="scoringModal">×</button></div><div class="modalbody"><div class="scoregrid" id="scoreGrid"></div><div style="display:flex;gap:8px;margin-top:12px"><button id="saveScoring" class="btn primary">Save Scoring</button></div></div></div></div>
+<div id="toast" class="toast"></div>
+
+<script src="weekend-tracker-core.js?v=20260909b"></script>
+<script src="weekend-tracker-ui.js?v=20260909b"></script>
+<script src="weekend-tracker-data.js?v=20260909b"></script>
+</body>
+</html>
