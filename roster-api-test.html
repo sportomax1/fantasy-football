@@ -5,460 +5,65 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fantasy Roster API Lab</title>
 <style>
-:root{color-scheme:dark;--bg:#090b10;--card:#111722;--card2:#171f2d;--line:#293447;--text:#f6f8fb;--muted:#94a3b8;--accent:#f7b500;--ok:#42d392;--bad:#ff6b6b;--info:#63b3ff}
-*{box-sizing:border-box}
-body{margin:0;background:linear-gradient(135deg,#080a0f,#101827);font:14px system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}
-header{padding:24px max(18px,calc((100% - 1200px)/2));border-bottom:1px solid var(--line);background:#090b10dd;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}
-h1{margin:0;font-size:24px} h2{font-size:18px}
-header p{margin:6px 0 0;color:var(--muted)}
-main{max-width:1200px;margin:auto;padding:20px}
-.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}
-.tab{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:700}
-.tab.active{background:var(--accent);color:#111;border-color:var(--accent)}
-.panel{display:none}.panel.active{display:block}
-.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
-input,textarea{width:100%;background:#080c13;color:white;border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}
-textarea{min-height:150px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
-button,.button-link{font:inherit}
-button.go,.button-link{background:var(--accent);color:#111;border:0;border-radius:9px;padding:11px 18px;font-weight:800;cursor:pointer;align-self:end;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-button.secondary,.button-link.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px 18px;cursor:pointer}
-button.danger{background:#3a171b;color:#ffb2b2;border:1px solid #71343b;border-radius:9px;padding:11px 18px;cursor:pointer}
-.note{color:var(--muted);margin-top:10px;line-height:1.45}
-.mini{font-size:12px;color:var(--muted);line-height:1.45}
-.step{border-left:3px solid var(--accent);padding-left:12px;margin:14px 0}
-.step b{color:white}
-.status{padding:10px 12px;border-radius:9px;background:var(--card2);margin:12px 0}
-.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.status.info{color:var(--info)}
-.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
-.team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.team h3{margin:0;padding:12px 14px;background:var(--card2);font-size:15px}
-.player{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:8px 14px;border-top:1px solid #202a39;align-items:center}
-.pos{color:var(--accent);font-weight:800}.nfl{color:var(--muted);min-width:30px;text-align:right}
-.starter{font-size:10px;border:1px solid #42516a;border-radius:10px;padding:2px 6px;color:#b9c5d6}
-details{margin-top:14px}
-pre{white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:#070a0f;border:1px solid var(--line);padding:12px;border-radius:10px;font-size:11px}
-.summary{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);margin-bottom:12px}.summary b{color:white}
-.cached{margin-top:10px;padding:9px 11px;border:1px dashed var(--line);border-radius:9px;color:var(--muted)}
-code{color:#d5e7ff}
-@media(max-width:600px){header{padding:16px}main{padding:12px}.teams{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.actions>*{flex:1 1 100%}}
+:root{color-scheme:dark;--bg:#090b10;--card:#111722;--card2:#171f2d;--line:#293447;--text:#f6f8fb;--muted:#94a3b8;--accent:#f7b500;--ok:#42d392;--bad:#ff6b6b;--info:#63b3ff}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#080a0f,#101827);font:14px system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}header{padding:22px max(16px,calc((100% - 1200px)/2));border-bottom:1px solid var(--line);background:#090b10e8;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}h1{margin:0;font-size:24px}h2{font-size:18px;margin:0 0 8px}header p{margin:6px 0 0;color:var(--muted)}main{max-width:1200px;margin:auto;padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.tab{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:750}.tab.active{background:var(--accent);color:#111;border-color:var(--accent)}.panel{display:none}.panel.active{display:block}.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}input,textarea{width:100%;background:#080c13;color:white;border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}textarea{min-height:145px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}button,.button-link{font:inherit}button.go,.button-link{background:var(--accent);color:#111;border:0;border-radius:9px;padding:11px 18px;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}button.secondary,.button-link.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px 18px;cursor:pointer}button.danger{background:#3a171b;color:#ffb2b2;border:1px solid #71343b;border-radius:9px;padding:11px 18px;cursor:pointer}.note,.mini{color:var(--muted);line-height:1.45}.note{margin-top:10px}.mini{font-size:12px}.step{border-left:3px solid var(--accent);padding-left:12px;margin:14px 0}.status{padding:10px 12px;border-radius:9px;background:var(--card2);margin:12px 0}.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.status.info{color:var(--info)}.summary{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);margin-bottom:12px}.summary b{color:white}.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.team h3{margin:0;padding:12px 14px;background:var(--card2);font-size:15px}.player{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:8px 14px;border-top:1px solid #202a39;align-items:center}.pos{color:var(--accent);font-weight:800}.nfl{color:var(--muted);min-width:30px;text-align:right}.starter{font-size:10px;border:1px solid #42516a;border-radius:10px;padding:2px 6px;color:#b9c5d6}.cached{margin-top:10px;padding:9px 11px;border:1px dashed var(--line);border-radius:9px;color:var(--muted)}details{margin-top:14px}pre{white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:#070a0f;border:1px solid var(--line);padding:12px;border-radius:10px;font-size:11px}@media(max-width:600px){header{padding:16px}main{padding:12px}.grid,.teams{grid-template-columns:1fr}.actions>*{flex:1 1 100%}}
 </style>
 </head>
 <body>
-<header>
-  <h1>🏈 Fantasy Roster API Lab</h1>
-  <p>Sleeper direct API + private ESPN and Yahoo browser-session imports.</p>
-</header>
+<header><h1>🏈 Fantasy Roster API Lab</h1><p>Sleeper direct API + private ESPN and Yahoo logged-in browser imports.</p></header>
 <main>
-<div class="tabs">
-  <button class="tab active" data-p="sleeper">Sleeper</button>
-  <button class="tab" data-p="espn">ESPN</button>
-  <button class="tab" data-p="yahoo">Yahoo</button>
-</div>
+<div class="tabs"><button class="tab active" data-p="sleeper">Sleeper</button><button class="tab" data-p="espn">ESPN</button><button class="tab" data-p="yahoo">Yahoo</button></div>
 
 <section id="sleeper" class="panel active">
-  <div class="box">
-    <div class="grid">
-      <div><label>League ID</label><input id="sleeperId" value="1389704048822722560"></div>
-      <button class="go" onclick="loadSleeper()">Load Rosters</button>
-    </div>
-    <div class="note">Preset Sleeper league. No authentication required.</div>
-  </div>
-  <div id="sleeperOut"></div>
+<div class="box"><div class="grid"><div><label>League ID</label><input id="sleeperId" value="1389704048822722560"></div><button class="go" onclick="loadSleeper()">Load Rosters</button></div><div class="note">Direct Sleeper API. No authentication required.</div></div><div id="sleeperOut"></div>
 </section>
 
 <section id="espn" class="panel">
-  <div class="box">
-    <div class="grid">
-      <div><label>League ID</label><input id="espnId" value="102332"></div>
-      <div><label>Season</label><input id="espnSeason" type="number" value="2026"></div>
-      <button class="go" onclick="loadESPN()">Try Direct Load</button>
-    </div>
-    <div class="note">This ESPN league is private. Direct loading from GitHub Pages returns 401. The console importer below uses your already logged-in ESPN browser session, then transfers only league JSON to this page.</div>
-  </div>
-
-  <div class="box">
-    <h2 style="margin:0 0 8px">Private ESPN League Import</h2>
-    <div class="step"><b>1. Open ESPN while logged in.</b></div>
-    <div class="actions">
-      <a class="button-link secondary" href="https://fantasy.espn.com/football/league?seasonId=2026&leagueId=102332" target="_blank" rel="noopener">Open ESPN League</a>
-      <button class="go" onclick="copyESPNConsoleCommand()">Copy ESPN Console Command</button>
-    </div>
-    <div id="espnCopyStatus"></div>
-
-    <div class="step"><b>2. In ESPN DevTools → Console, paste and run the command.</b><div class="mini">The command fetches your private roster on ESPN's origin, opens this lab, sends the league JSON, and also copies the JSON as a fallback.</div></div>
-    <textarea id="espnConsoleCommand" readonly aria-label="ESPN console command"></textarea>
-
-    <div class="step"><b>3. If automatic transfer is blocked, paste the copied JSON here.</b></div>
-    <div class="actions">
-      <button class="go" onclick="pasteESPNFromClipboard()">Paste JSON From Clipboard</button>
-      <button class="secondary" onclick="importESPNPaste()">Import Pasted JSON</button>
-      <button class="danger" onclick="clearESPNSaved()">Clear Saved ESPN</button>
-    </div>
-    <label style="margin-top:12px" for="espnPaste">ESPN JSON fallback</label>
-    <textarea id="espnPaste" placeholder="Paste ESPN JSON here if the automatic transfer did not arrive."></textarea>
-    <div id="espnCacheInfo" class="cached">No saved ESPN roster found yet.</div>
-  </div>
-  <div id="espnOut"></div>
+<div class="box"><div class="grid"><div><label>League ID</label><input id="espnId" value="102332"></div><div><label>Season</label><input id="espnSeason" type="number" value="2026"></div><button class="go" onclick="loadESPN()">Try Direct Load</button></div><div class="note">This ESPN league is private, so the logged-in ESPN console bridge is the reliable path.</div></div>
+<div class="box"><h2>Private ESPN League Import</h2><div class="step"><b>1. Open ESPN while logged in.</b></div><div class="actions"><a class="button-link secondary" href="https://fantasy.espn.com/football/league?seasonId=2026&leagueId=102332" target="_blank" rel="noopener">Open ESPN League</a><button class="go" onclick="copyESPNConsoleCommand()">Copy ESPN Console Command</button></div><div id="espnCopyStatus"></div><div class="step"><b>2. Paste/run the command in ESPN DevTools → Console.</b><div class="mini">It fetches your league using the ESPN session already in that tab, opens this lab, sends only league JSON, and copies JSON as a fallback.</div></div><textarea id="espnConsoleCommand" readonly></textarea><div class="step"><b>3. Fallback if automatic transfer is blocked.</b></div><div class="actions"><button class="go" onclick="pasteESPNFromClipboard()">Paste JSON From Clipboard</button><button class="secondary" onclick="importESPNPaste()">Import Pasted JSON</button><button class="danger" onclick="clearESPNSaved()">Clear Saved ESPN</button></div><label style="margin-top:12px" for="espnPaste">ESPN JSON fallback</label><textarea id="espnPaste" placeholder="Paste ESPN JSON here."></textarea><div id="espnCacheInfo" class="cached">No saved ESPN roster found yet.</div></div><div id="espnOut"></div>
 </section>
 
 <section id="yahoo" class="panel">
-  <div class="box">
-    <div class="grid">
-      <div><label>Yahoo League ID</label><input id="yahooId" value="1251448"></div>
-    </div>
-    <div class="note">No Yahoo API approval or OAuth required for this test. The console importer reads the Yahoo Rosters page using your existing logged-in Yahoo session. Your screenshot confirmed the page returns HTTP 200 and 18 roster tables.</div>
-  </div>
-
-  <div class="box">
-    <h2 style="margin:0 0 8px">Yahoo Logged-In Roster Import</h2>
-    <div class="step"><b>1. Open the Yahoo Rosters page while logged in.</b></div>
-    <div class="actions">
-      <a id="yahooOpenLink" class="button-link secondary" href="https://football.fantasysports.yahoo.com/f1/1251448/rosters" target="_blank" rel="noopener">Open Yahoo Rosters</a>
-      <button class="go" onclick="copyYahooConsoleCommand()">Copy Yahoo Console Command</button>
-    </div>
-    <div id="yahooCopyStatus"></div>
-
-    <div class="step"><b>2. In Yahoo DevTools → Console, paste and run the command.</b><div class="mini">It fetches the Rosters page on Yahoo's own origin, finds every roster table, extracts team/player rows, opens this lab, and sends the normalized roster JSON here.</div></div>
-    <textarea id="yahooConsoleCommand" readonly aria-label="Yahoo console command"></textarea>
-
-    <div class="step"><b>3. If automatic transfer is blocked, use the copied JSON fallback.</b></div>
-    <div class="actions">
-      <button class="go" onclick="pasteYahooFromClipboard()">Paste JSON From Clipboard</button>
-      <button class="secondary" onclick="importYahooPaste()">Import Pasted JSON</button>
-      <button class="danger" onclick="clearYahooSaved()">Clear Saved Yahoo</button>
-    </div>
-    <label style="margin-top:12px" for="yahooPaste">Yahoo JSON fallback</label>
-    <textarea id="yahooPaste" placeholder="Paste Yahoo JSON here if the automatic transfer did not arrive."></textarea>
-    <div id="yahooCacheInfo" class="cached">No saved Yahoo roster found yet.</div>
-  </div>
-  <div id="yahooOut"></div>
+<div class="box"><div class="grid"><div><label>Yahoo League ID</label><input id="yahooId" value="1251448"></div><div><label>Your Yahoo Team ID</label><input id="yahooTeamId" value="6"></div></div><div class="note"><b>No OAuth and no Yahoo developer approval.</b> Start from your real team page. The console command discovers Yahoo's current <b>Rosters</b> link from the page instead of guessing a <code>/rosters</code> URL.</div></div>
+<div class="box"><h2>Yahoo Logged-In Roster Import</h2><div class="step"><b>1. Open your Yahoo team page while logged in.</b><div class="mini">Preset: league 1251448, team 6.</div></div><div class="actions"><a id="yahooOpenLink" class="button-link secondary" href="https://football.fantasysports.yahoo.com/f1/1251448/6" target="_blank" rel="noopener">Open Yahoo Team</a><button class="go" onclick="copyYahooConsoleCommand()">Copy Yahoo Console Command</button></div><div id="yahooCopyStatus"></div><div class="step"><b>2. Paste/run the command in Yahoo DevTools → Console.</b><div class="mini">The command finds the visible League → Rosters navigation link, fetches that exact Yahoo URL using your logged-in session, parses the roster tables, and sends the normalized data here.</div></div><textarea id="yahooConsoleCommand" readonly></textarea><div class="step"><b>3. Fallback if automatic transfer is blocked.</b></div><div class="actions"><button class="go" onclick="pasteYahooFromClipboard()">Paste JSON From Clipboard</button><button class="secondary" onclick="importYahooPaste()">Import Pasted JSON</button><button class="danger" onclick="clearYahooSaved()">Clear Saved Yahoo</button></div><label style="margin-top:12px" for="yahooPaste">Yahoo JSON fallback</label><textarea id="yahooPaste" placeholder="Paste Yahoo JSON here."></textarea><div id="yahooCacheInfo" class="cached">No saved Yahoo roster found yet.</div></div><div id="yahooOut"></div>
 </section>
 </main>
-
 <script>
-const $=id=>document.getElementById(id);
-const ESPN_STORAGE_KEY='fantasyRosterLab:espn:102332:2026';
-const ESPN_META_KEY=ESPN_STORAGE_KEY+':meta';
-const YAHOO_STORAGE_KEY='fantasyRosterLab:yahoo:1251448:2026';
-const YAHOO_META_KEY=YAHOO_STORAGE_KEY+':meta';
-
-function activateTab(name){
-  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
-  const button=document.querySelector('.tab[data-p="'+name+'"]');
-  if(button) button.classList.add('active');
-  const panel=$(name);
-  if(panel) panel.classList.add('active');
-  if(location.hash!=='#'+name) history.replaceState(null,'','#'+name);
-}
+const $=id=>document.getElementById(id), ESPN_KEY='fantasyRosterLab:espn:102332:2026', YAHOO_KEY='fantasyRosterLab:yahoo:1251448:2026';
+function activateTab(name){document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));document.querySelector('.tab[data-p="'+name+'"]')?.classList.add('active');$(name)?.classList.add('active');if(location.hash!=='#'+name)history.replaceState(null,'','#'+name)}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.p));
-
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function status(msg,bad=false,info=false){return '<div class="status '+(bad?'bad':info?'info':'ok')+'">'+esc(msg)+'</div>'}
-function raw(data){return '<details><summary>Raw API response</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>'}
-function render(provider,leagueName,teams,data){
-  const players=teams.reduce((n,t)=>n+t.players.length,0);
-  return '<div class="summary"><span>Provider <b>'+esc(provider)+'</b></span><span>League <b>'+esc(leagueName||'Unknown')+'</b></span><span>Teams <b>'+teams.length+'</b></span><span>Roster spots <b>'+players+'</b></span></div>'+ '<div class="teams">'+teams.map(t=>'<article class="team"><h3>'+esc(t.name)+'</h3>'+ (t.players.length?t.players.map(p=>'<div class="player"><span>'+esc(p.name)+' '+(p.starter?'<span class="starter">START</span>':'')+'</span><span class="pos">'+esc(p.pos||'')+'</span><span class="nfl">'+esc(p.team||'')+'</span></div>').join(''):'<div class="player"><span>No players returned</span></div>')+ '</article>').join('')+'</div>'+raw(data);
-}
-async function getJSON(url,opts){
-  const r=await fetch(url,opts);
-  const text=await r.text();
-  if(!r.ok){const err=new Error(r.status+' '+r.statusText+': '+text.slice(0,300));err.status=r.status;err.body=text;throw err}
-  try{return JSON.parse(text)}catch{throw new Error('Response was not JSON: '+text.slice(0,300))}
-}
-async function copyText(text,statusId){
-  try{
-    await navigator.clipboard.writeText(text);
-    $(statusId).innerHTML=status('Console command copied.');
-    return;
-  }catch{}
-  const ta=document.createElement('textarea');
-  ta.value=text;document.body.appendChild(ta);ta.select();
-  try{document.execCommand('copy');$(statusId).innerHTML=status('Console command copied.');}
-  catch(e){$(statusId).innerHTML=status('Could not copy automatically. Select the command text and copy it manually.',true)}
-  ta.remove();
-}
+function raw(data){return '<details><summary>Raw data</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>'}
+function render(provider,leagueName,teams,data){const count=teams.reduce((n,t)=>n+t.players.length,0);return '<div class="summary"><span>Provider <b>'+esc(provider)+'</b></span><span>League <b>'+esc(leagueName||'Unknown')+'</b></span><span>Teams <b>'+teams.length+'</b></span><span>Roster spots <b>'+count+'</b></span></div><div class="teams">'+teams.map(t=>'<article class="team"><h3>'+esc(t.name)+'</h3>'+t.players.map(p=>'<div class="player"><span>'+esc(p.name)+(p.starter?' <span class="starter">START</span>':'')+'</span><span class="pos">'+esc(p.pos||'')+'</span><span class="nfl">'+esc(p.team||'')+'</span></div>').join('')+'</article>').join('')+'</div>'+raw(data)}
+async function getJSON(url,opts){const r=await fetch(url,opts),text=await r.text();if(!r.ok)throw new Error(r.status+' '+r.statusText+': '+text.slice(0,250));return JSON.parse(text)}
+async function copyText(text,id){try{await navigator.clipboard.writeText(text);$(id).innerHTML=status('Console command copied.')}catch{$(id).innerHTML=status('Clipboard copy blocked. Select the command below and copy it manually.',true)}}
 
-async function loadSleeper(){
-  const out=$('sleeperOut'),id=$('sleeperId').value.trim();
-  out.innerHTML=status('Loading Sleeper league and rosters…',false,true);
-  try{
-    const base='https://api.sleeper.app/v1';
-    const [league,rosters,users,players]=await Promise.all([
-      getJSON(base+'/league/'+encodeURIComponent(id)),
-      getJSON(base+'/league/'+encodeURIComponent(id)+'/rosters'),
-      getJSON(base+'/league/'+encodeURIComponent(id)+'/users'),
-      getJSON(base+'/players/nfl')
-    ]);
-    const userMap=Object.fromEntries(users.map(u=>[u.user_id,u]));
-    const teams=rosters.map(r=>{
-      const u=userMap[r.owner_id]||{},starters=new Set(r.starters||[]);
-      return {name:u.metadata?.team_name||u.display_name||u.username||('Roster '+r.roster_id),players:(r.players||[]).map(pid=>{
-        const p=players[pid];
-        return {name:p?.full_name||(p?.first_name?(p.first_name+' '+(p.last_name||'')):pid),pos:p?.position||'',team:p?.team||'',starter:starters.has(pid)};
-      })};
-    });
-    out.innerHTML=status('Sleeper roster import succeeded.')+render('Sleeper',league.name,teams,{league,rosters,users});
-  }catch(e){out.innerHTML=status('Sleeper failed: '+e.message,true)}
-}
-
+async function loadSleeper(){const out=$('sleeperOut'),id=$('sleeperId').value.trim();out.innerHTML=status('Loading Sleeper…',false,true);try{const b='https://api.sleeper.app/v1';const [league,rosters,users,players]=await Promise.all([getJSON(b+'/league/'+id),getJSON(b+'/league/'+id+'/rosters'),getJSON(b+'/league/'+id+'/users'),getJSON(b+'/players/nfl')]);const um=Object.fromEntries(users.map(u=>[u.user_id,u]));const teams=rosters.map(r=>{const u=um[r.owner_id]||{},starts=new Set(r.starters||[]);return{name:u.metadata?.team_name||u.display_name||u.username||('Roster '+r.roster_id),players:(r.players||[]).map(pid=>{const p=players[pid]||{};return{name:p.full_name||pid,pos:p.position||'',team:p.team||'',starter:starts.has(pid)}})}});out.innerHTML=status('Sleeper roster import succeeded.')+render('Sleeper',league.name,teams,{league,rosters,users})}catch(e){out.innerHTML=status('Sleeper failed: '+e.message,true)}}
 function positionName(id){return({1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'DST'})[id]||String(id||'')}
 function nflTeam(id){return({1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GB',10:'TEN',11:'IND',12:'KC',13:'LV',14:'LAR',15:'MIA',16:'MIN',17:'NE',18:'NO',19:'NYG',20:'NYJ',21:'PHI',22:'ARI',23:'PIT',24:'LAC',25:'SF',26:'SEA',27:'TB',28:'WAS',29:'CAR',30:'JAX',33:'BAL',34:'HOU'})[id]||''}
+function normalizeESPN(d){const m=Object.fromEntries((d.members||[]).map(x=>[x.id,x]));return(d.teams||[]).map(t=>({name:t.name||m[(t.owners||[])[0]]?.displayName||('Team '+t.id),players:(t.roster?.entries||[]).map(e=>{const p=e.playerPoolEntry?.player||{};return{name:p.fullName||('ESPN '+p.id),pos:positionName(p.defaultPositionId),team:nflTeam(p.proTeamId),starter:![20,21].includes(e.lineupSlotId)}})}))}
+function saveESPN(d){localStorage.setItem(ESPN_KEY,JSON.stringify(d));localStorage.setItem(ESPN_KEY+':at',new Date().toISOString());updateCache()}
+function renderESPN(d,msg='ESPN roster imported successfully.'){const teams=normalizeESPN(d);$('espnOut').innerHTML=status(msg)+render('ESPN',d.settings?.name||('League '+d.id),teams,d);activateTab('espn')}
+async function loadESPN(){const id=$('espnId').value.trim(),s=$('espnSeason').value||'2026',out=$('espnOut');out.innerHTML=status('Trying direct ESPN load…',false,true);try{const d=await getJSON('https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+s+'/segments/0/leagues/'+id+'?view=mTeam&view=mRoster&view=mSettings');saveESPN(d);renderESPN(d,'Direct ESPN roster import succeeded.')}catch(e){out.innerHTML=status('Direct ESPN failed. Use the ESPN Console Command below. '+e.message,true)}}
+function buildESPN(){const id=$('espnId').value.trim()||'102332',s=$('espnSeason').value||'2026',lab=location.origin+location.pathname+'#espn';return `(async()=>{const id=${JSON.stringify(id)},season=${JSON.stringify(String(s))},LAB=${JSON.stringify(lab)};const url='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+season+'/segments/0/leagues/'+id+'?view=mTeam&view=mRoster&view=mSettings';const r=await fetch(url,{credentials:'include'});console.log('ESPN HTTP:',r.status);const data=await r.json();if(!r.ok)throw new Error(JSON.stringify(data));console.table((data.teams||[]).map(t=>({id:t.id,team:t.name,players:t.roster?.entries?.length||0})));try{copy(JSON.stringify(data))}catch{}const w=window.open(LAB,'fantasyRosterLab');setTimeout(()=>w?.postMessage({type:'ESPN_FANTASY_DATA',data},new URL(LAB).origin),1800);window.espnFantasyData=data;console.log('ESPN import ready');})();`}
+function refreshESPN(){$('espnConsoleCommand').value=buildESPN()}
+async function copyESPNConsoleCommand(){refreshESPN();await copyText($('espnConsoleCommand').value,'espnCopyStatus')}
+async function pasteESPNFromClipboard(){try{$('espnPaste').value=await navigator.clipboard.readText();importESPNPaste()}catch(e){$('espnOut').innerHTML=status('Clipboard read blocked. Paste manually.',true)}}
+function importESPNPaste(){try{const d=JSON.parse($('espnPaste').value);saveESPN(d);renderESPN(d)}catch(e){$('espnOut').innerHTML=status('ESPN JSON import failed: '+e.message,true)}}
+function clearESPNSaved(){localStorage.removeItem(ESPN_KEY);localStorage.removeItem(ESPN_KEY+':at');$('espnOut').innerHTML='';updateCache()}
 
-function normalizeESPN(d){
-  const members=Object.fromEntries((d.members||[]).map(m=>[m.id,m]));
-  return (d.teams||[]).map(t=>{
-    const owner=members[(t.owners||[])[0]]||{};
-    return {
-      name:t.name||((t.location&&t.nickname)?(t.location+' '+t.nickname):owner.displayName||('Team '+t.id)),
-      players:(t.roster?.entries||[]).map(e=>{
-        const p=e.playerPoolEntry?.player||{};
-        return {name:p.fullName||('ESPN '+(p.id||'unknown')),pos:positionName(p.defaultPositionId),team:nflTeam(p.proTeamId),starter:e.lineupSlotId!==20&&e.lineupSlotId!==21};
-      })
-    };
-  });
-}
-function saveESPNData(d,source='ESPN import'){
-  localStorage.setItem(ESPN_STORAGE_KEY,JSON.stringify(d));
-  localStorage.setItem(ESPN_META_KEY,JSON.stringify({savedAt:new Date().toISOString(),source}));
-  updateESPNCacheInfo();
-}
-function renderESPNData(d,message='ESPN roster imported successfully.'){
-  if(!d||!Array.isArray(d.teams)) throw new Error('JSON does not look like an ESPN fantasy league response (teams array missing).');
-  const teams=normalizeESPN(d);
-  $('espnOut').innerHTML=status(message)+render('ESPN',d.settings?.name||('League '+(d.id||$('espnId').value)),teams,d);
-  activateTab('espn');
-}
-function updateESPNCacheInfo(){
-  const box=$('espnCacheInfo'); if(!box) return;
-  const saved=localStorage.getItem(ESPN_STORAGE_KEY);
-  if(!saved){box.textContent='No saved ESPN roster found yet.';return}
-  let meta={};try{meta=JSON.parse(localStorage.getItem(ESPN_META_KEY)||'{}')}catch{}
-  box.textContent='Saved ESPN roster available locally. Last saved: '+(meta.savedAt?new Date(meta.savedAt).toLocaleString():'unknown time')+'.';
-}
-function restoreESPNData(){
-  const saved=localStorage.getItem(ESPN_STORAGE_KEY);updateESPNCacheInfo();
-  if(!saved) return;
-  try{renderESPNData(JSON.parse(saved),'Loaded saved ESPN roster from this browser.');}catch(e){console.warn(e)}
-}
-function clearESPNSaved(){
-  localStorage.removeItem(ESPN_STORAGE_KEY);localStorage.removeItem(ESPN_META_KEY);$('espnOut').innerHTML='';updateESPNCacheInfo();
-}
-async function loadESPN(){
-  const out=$('espnOut'),id=$('espnId').value.trim(),season=$('espnSeason').value||'2026';
-  out.innerHTML=status('Trying direct ESPN load…',false,true);
-  const url='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+encodeURIComponent(season)+'/segments/0/leagues/'+encodeURIComponent(id)+'?view=mTeam&view=mRoster&view=mSettings';
-  try{
-    const d=await getJSON(url);
-    saveESPNData(d,'direct');
-    renderESPNData(d,'Direct ESPN roster import succeeded.');
-  }catch(e){
-    out.innerHTML=status('Direct ESPN failed: '+e.message+'. For this private league, use Copy ESPN Console Command below.',true);
-  }
-}
-function buildESPNConsoleCommand(){
-  const id=$('espnId').value.trim()||'102332';
-  const season=$('espnSeason').value||'2026';
-  const labUrl=location.origin+location.pathname+'#espn';
-  return `(async()=>{\n`+
-`  const leagueId=${JSON.stringify(id)};\n`+
-`  const season=${JSON.stringify(String(season))};\n`+
-`  const labUrl=${JSON.stringify(labUrl)};\n`+
-`  const url='https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/'+season+'/segments/0/leagues/'+leagueId+'?view=mTeam&view=mRoster&view=mSettings';\n`+
-`  const r=await fetch(url,{credentials:'include',headers:{Accept:'application/json'}});\n`+
-`  console.log('ESPN HTTP:',r.status);\n`+
-`  const text=await r.text();\n`+
-`  if(!r.ok){console.error(text);throw new Error('ESPN request failed '+r.status);}\n`+
-`  const data=JSON.parse(text);\n`+
-`  window.espnFantasyData=data;\n`+
-`  console.table((data.teams||[]).map(t=>({id:t.id,team:t.name,rosterSize:t.roster?.entries?.length||0})));\n`+
-`  try{copy(JSON.stringify(data));console.log('Fallback ESPN JSON copied to clipboard.');}catch(e){console.warn('DevTools copy() unavailable',e);}\n`+
-`  const lab=window.open(labUrl,'fantasyRosterLab');\n`+
-`  setTimeout(()=>{if(lab)lab.postMessage({type:'ESPN_FANTASY_DATA',data},new URL(labUrl).origin);},1600);\n`+
-`  console.log('ESPN roster ready. Lab opened and transfer attempted.');\n`+
-`})();`;
-}
-function refreshESPNCommand(){$('espnConsoleCommand').value=buildESPNConsoleCommand()}
-async function copyESPNConsoleCommand(){refreshESPNCommand();await copyText($('espnConsoleCommand').value,'espnCopyStatus')}
-async function pasteESPNFromClipboard(){
-  try{$('espnPaste').value=await navigator.clipboard.readText();importESPNPaste();}
-  catch(e){$('espnOut').innerHTML=status('Clipboard read was blocked. Paste the copied JSON into the box manually.',true)}
-}
-function importESPNPaste(){
-  try{const d=JSON.parse($('espnPaste').value.trim());saveESPNData(d,'pasted JSON');renderESPNData(d);}
-  catch(e){$('espnOut').innerHTML=status('ESPN JSON import failed: '+e.message,true)}
-}
-
-function normalizeYahoo(d){
-  if(!d||!Array.isArray(d.teams)) throw new Error('Yahoo import JSON is missing teams.');
-  return d.teams.map((t,i)=>({
-    name:t.name||('Yahoo Team '+(i+1)),
-    players:(t.players||[]).map(p=>({
-      name:p.name||'Unknown player',
-      pos:p.pos||p.slot||'',
-      team:p.team||'',
-      starter:p.starter!==false
-    }))
-  }));
-}
-function saveYahooData(d,source='Yahoo import'){
-  localStorage.setItem(YAHOO_STORAGE_KEY,JSON.stringify(d));
-  localStorage.setItem(YAHOO_META_KEY,JSON.stringify({savedAt:new Date().toISOString(),source}));
-  updateYahooCacheInfo();
-}
-function renderYahooData(d,message='Yahoo roster imported successfully.'){
-  const teams=normalizeYahoo(d);
-  $('yahooOut').innerHTML=status(message)+render('Yahoo',d.leagueName||('League '+(d.leagueId||$('yahooId').value)),teams,d);
-  activateTab('yahoo');
-}
-function updateYahooCacheInfo(){
-  const box=$('yahooCacheInfo'); if(!box) return;
-  const saved=localStorage.getItem(YAHOO_STORAGE_KEY);
-  if(!saved){box.textContent='No saved Yahoo roster found yet.';return}
-  let meta={};try{meta=JSON.parse(localStorage.getItem(YAHOO_META_KEY)||'{}')}catch{}
-  box.textContent='Saved Yahoo roster available locally. Last saved: '+(meta.savedAt?new Date(meta.savedAt).toLocaleString():'unknown time')+'.';
-}
-function restoreYahooData(){
-  const saved=localStorage.getItem(YAHOO_STORAGE_KEY);updateYahooCacheInfo();
-  if(!saved) return;
-  try{renderYahooData(JSON.parse(saved),'Loaded saved Yahoo roster from this browser.');}catch(e){console.warn(e)}
-}
-function clearYahooSaved(){
-  localStorage.removeItem(YAHOO_STORAGE_KEY);localStorage.removeItem(YAHOO_META_KEY);$('yahooOut').innerHTML='';updateYahooCacheInfo();
-}
-function buildYahooConsoleCommand(){
-  const leagueId=$('yahooId').value.trim()||'1251448';
-  const labUrl=location.origin+location.pathname+'#yahoo';
-  return `(async()=>{\n`+
-`  const LEAGUE_ID=${JSON.stringify(leagueId)};\n`+
-`  const LAB_URL=${JSON.stringify(labUrl)};\n`+
-`  const rosterUrl='https://football.fantasysports.yahoo.com/f1/'+LEAGUE_ID+'/rosters';\n`+
-`  const clean=s=>(s||'').replace(/\\s+/g,' ').trim();\n`+
-`  const r=await fetch(rosterUrl,{credentials:'include'});\n`+
-`  console.log('YAHOO ROSTERS HTTP:',r.status);\n`+
-`  if(!r.ok) throw new Error('Yahoo rosters request failed '+r.status);\n`+
-`  const html=await r.text();\n`+
-`  const doc=new DOMParser().parseFromString(html,'text/html');\n`+
-`  const rosterTables=[...doc.querySelectorAll('table')].filter(t=>{\n`+
-`    const hs=[...t.querySelectorAll('th')].map(x=>clean(x.textContent).toLowerCase());\n`+
-`    return hs.includes('pos')&&hs.includes('player');\n`+
-`  });\n`+
-`  console.log('ROSTER TABLES FOUND:',rosterTables.length);\n`+
-`  const teamPath=new RegExp('^/f1/'+LEAGUE_ID+'/(\\\\d+)/?$');\n`+
-`  function containerFor(table){\n`+
-`    let c=table;\n`+
-`    while(c.parentElement&&c.parentElement.querySelectorAll('table').length===1)c=c.parentElement;\n`+
-`    return c;\n`+
-`  }\n`+
-`  function teamNameFor(table,index){\n`+
-`    const c=containerFor(table);\n`+
-`    const candidates=[...c.querySelectorAll('a[href]')].filter(a=>{\n`+
-`      try{return teamPath.test(new URL(a.href,rosterUrl).pathname)&&clean(a.textContent).length>1;}catch{return false;}\n`+
-`    });\n`+
-`    const best=candidates.find(a=>!/^(roster|players|matchup|team|view|edit)$/i.test(clean(a.textContent)));\n`+
-`    if(best)return clean(best.textContent);\n`+
-`    const heading=[...c.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(x=>clean(x.textContent)).find(Boolean);\n`+
-`    if(heading)return heading;\n`+
-`    let p=c.previousElementSibling,tries=0;\n`+
-`    while(p&&tries++<5){\n`+
-`      const a=p.matches&&p.matches('a[href]')?p:p.querySelector&&p.querySelector('a[href]');\n`+
-`      if(a){try{if(teamPath.test(new URL(a.href,rosterUrl).pathname)&&clean(a.textContent))return clean(a.textContent);}catch{}}\n`+
-`      const h=p.matches&&p.matches('h1,h2,h3,h4,h5,h6')?p:p.querySelector&&p.querySelector('h1,h2,h3,h4,h5,h6');\n`+
-`      if(h&&clean(h.textContent))return clean(h.textContent);\n`+
-`      p=p.previousElementSibling;\n`+
-`    }\n`+
-`    return 'Yahoo Team '+(index+1);\n`+
-`  }\n`+
-`  function playerName(cell){\n`+
-`    const links=[...cell.querySelectorAll('a[href]')];\n`+
-`    const strong=links.find(a=>{\n`+
-`      const txt=clean(a.textContent),href=a.getAttribute('href')||'';\n`+
-`      return txt.length>2&&(/\\/nfl\\/players\\//i.test(href)||/\\/player\\//i.test(href));\n`+
-`    });\n`+
-`    if(strong)return clean(strong.textContent);\n`+
-`    const fallback=links.find(a=>{\n`+
-`      const txt=clean(a.textContent);\n`+
-`      return txt.length>2&&!/^(video|forecast|player note|new player|notes|news|add|watch)$/i.test(txt);\n`+
-`    });\n`+
-`    if(fallback)return clean(fallback.textContent);\n`+
-`    return clean(cell.textContent).split(/Video|Forecast|Player Note|New player note|No new player/i)[0].trim();\n`+
-`  }\n`+
-`  const teams=rosterTables.map((table,index)=>{\n`+
-`    const rows=[...table.querySelectorAll('tbody tr')];\n`+
-`    const players=rows.map(row=>{\n`+
-`      const cells=[...row.querySelectorAll('th,td')];\n`+
-`      if(cells.length<2)return null;\n`+
-`      const pos=clean(cells[0].textContent);\n`+
-`      const name=playerName(cells[1]);\n`+
-`      if(!name||/^player$/i.test(name)||/^pos$/i.test(pos))return null;\n`+
-`      return {name,pos,team:'',starter:! /^(BN|IR|IR\\+|NA)$/i.test(pos)};\n`+
-`    }).filter(Boolean);\n`+
-`    return {name:teamNameFor(table,index),players};\n`+
-`  }).filter(t=>t.players.length);\n`+
-`  const idText='(ID# '+LEAGUE_ID+')';\n`+
-`  const leagueNode=[...doc.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span')].find(x=>clean(x.textContent).includes(idText)&&clean(x.textContent).length<150);\n`+
-`  const leagueName=leagueNode?clean(leagueNode.textContent).replace(new RegExp('\\\\s*\\\\(ID#\\\\s*'+LEAGUE_ID+'\\\\).*'),''):'Yahoo League '+LEAGUE_ID;\n`+
-`  const data={provider:'Yahoo',leagueId:LEAGUE_ID,leagueName,fetchedAt:new Date().toISOString(),teams};\n`+
-`  window.yahooFantasyData=data;\n`+
-`  console.table(teams.map((t,i)=>({index:i+1,team:t.name,players:t.players.length})));\n`+
-`  console.log('YAHOO IMPORT READY:',data);\n`+
-`  try{copy(JSON.stringify(data));console.log('Fallback Yahoo JSON copied to clipboard.');}catch(e){console.warn('DevTools copy() unavailable',e);}\n`+
-`  const lab=window.open(LAB_URL,'fantasyRosterLab');\n`+
-`  setTimeout(()=>{if(lab)lab.postMessage({type:'YAHOO_FANTASY_DATA',data},new URL(LAB_URL).origin);},1600);\n`+
-`  console.log('Yahoo roster transfer attempted.');\n`+
-`})();`;
-}
-function refreshYahooCommand(){
-  $('yahooConsoleCommand').value=buildYahooConsoleCommand();
-  $('yahooOpenLink').href='https://football.fantasysports.yahoo.com/f1/'+encodeURIComponent($('yahooId').value.trim()||'1251448')+'/rosters';
-}
-async function copyYahooConsoleCommand(){refreshYahooCommand();await copyText($('yahooConsoleCommand').value,'yahooCopyStatus')}
-async function pasteYahooFromClipboard(){
-  try{$('yahooPaste').value=await navigator.clipboard.readText();importYahooPaste();}
-  catch(e){$('yahooOut').innerHTML=status('Clipboard read was blocked. Paste the copied Yahoo JSON into the box manually.',true)}
-}
-function importYahooPaste(){
-  try{const d=JSON.parse($('yahooPaste').value.trim());saveYahooData(d,'pasted JSON');renderYahooData(d);}
-  catch(e){$('yahooOut').innerHTML=status('Yahoo JSON import failed: '+e.message,true)}
-}
-
-function trustedOrigin(origin,root){
-  try{
-    const h=new URL(origin).hostname.toLowerCase();
-    return h===root||h.endsWith('.'+root);
-  }catch{return false}
-}
-window.addEventListener('message',event=>{
-  try{
-    if(event.data?.type==='ESPN_FANTASY_DATA'&&trustedOrigin(event.origin,'espn.com')){
-      saveESPNData(event.data.data,'ESPN postMessage');
-      renderESPNData(event.data.data,'ESPN roster received automatically from your logged-in ESPN page.');
-    }
-    if(event.data?.type==='YAHOO_FANTASY_DATA'&&trustedOrigin(event.origin,'yahoo.com')){
-      saveYahooData(event.data.data,'Yahoo postMessage');
-      renderYahooData(event.data.data,'Yahoo roster received automatically from your logged-in Yahoo page.');
-    }
-  }catch(e){console.error('Roster import message failed',e)}
-});
-
-$('espnId').addEventListener('input',refreshESPNCommand);
-$('espnSeason').addEventListener('input',refreshESPNCommand);
-$('yahooId').addEventListener('input',refreshYahooCommand);
-refreshESPNCommand();
-refreshYahooCommand();
-updateESPNCacheInfo();
-updateYahooCacheInfo();
-
-const requested=(location.hash||'').slice(1);
-if(['sleeper','espn','yahoo'].includes(requested)) activateTab(requested);
-else activateTab('sleeper');
-
-const espnSaved=localStorage.getItem(ESPN_STORAGE_KEY);
-if(espnSaved&&requested==='espn'){try{renderESPNData(JSON.parse(espnSaved),'Loaded saved ESPN roster from this browser.');}catch(e){console.warn(e)}}
-const yahooSaved=localStorage.getItem(YAHOO_STORAGE_KEY);
-if(yahooSaved&&requested==='yahoo'){try{renderYahooData(JSON.parse(yahooSaved),'Loaded saved Yahoo roster from this browser.');}catch(e){console.warn(e)}}
+function saveYahoo(d){localStorage.setItem(YAHOO_KEY,JSON.stringify(d));localStorage.setItem(YAHOO_KEY+':at',new Date().toISOString());updateCache()}
+function renderYahoo(d,msg='Yahoo roster imported successfully.'){if(!Array.isArray(d?.teams))throw new Error('Yahoo JSON is missing teams.');$('yahooOut').innerHTML=status(msg)+render('Yahoo',d.leagueName||('League '+d.leagueId),d.teams,d);activateTab('yahoo')}
+function buildYahoo(){const league=$('yahooId').value.trim()||'1251448',team=$('yahooTeamId').value.trim()||'6',lab=location.origin+location.pathname+'#yahoo';return `(async()=>{const LEAGUE=${JSON.stringify(league)},TEAM=${JSON.stringify(team)},LAB=${JSON.stringify(lab)};const clean=s=>(s||'').replace(/\\s+/g,' ').trim();if(!location.hostname.endsWith('yahoo.com'))throw new Error('Run this on the logged-in Yahoo Fantasy page.');const rosterLink=[...document.querySelectorAll('a[href]')].find(a=>clean(a.textContent).toLowerCase()==='rosters');if(!rosterLink){console.table([...document.querySelectorAll('a[href]')].map(a=>({text:clean(a.textContent),href:a.href})).filter(x=>/roster/i.test(x.text)));throw new Error('Could not find Yahoo Rosters navigation link on this page.');}const rosterUrl=new URL(rosterLink.getAttribute('href'),location.href).href;console.log('YAHOO ROSTERS URL:',rosterUrl);const r=await fetch(rosterUrl,{credentials:'include'});console.log('YAHOO ROSTERS HTTP:',r.status);if(!r.ok)throw new Error('Yahoo roster page failed '+r.status);const html=await r.text(),doc=new DOMParser().parseFromString(html,'text/html');const tables=[...doc.querySelectorAll('table')].filter(t=>{const h=[...t.querySelectorAll('th')].map(x=>clean(x.textContent).toLowerCase());return h.includes('pos')&&h.includes('player')});console.log('ROSTER TABLES FOUND:',tables.length);const teamPath=new RegExp('^/f1/'+LEAGUE+'/(\\\\d+)/?$');function box(t){let c=t;while(c.parentElement&&c.parentElement.querySelectorAll('table').length===1)c=c.parentElement;return c}function teamInfo(t,i){const c=box(t),links=[...c.querySelectorAll('a[href]')].filter(a=>{try{return teamPath.test(new URL(a.getAttribute('href'),rosterUrl).pathname)&&clean(a.textContent).length>1}catch{return false}});const a=links.find(x=>!/^(roster|players|matchup|team|view|edit)$/i.test(clean(x.textContent)));if(a){const u=new URL(a.getAttribute('href'),rosterUrl);return{name:clean(a.textContent),teamId:u.pathname.split('/').filter(Boolean).pop()}}const h=[...c.querySelectorAll('h1,h2,h3,h4,h5,h6')].map(x=>clean(x.textContent)).find(Boolean);return{name:h||('Yahoo Team '+(i+1)),teamId:''}}function playerName(cell){const links=[...cell.querySelectorAll('a[href]')];const a=links.find(x=>clean(x.textContent).length>2&&!/^(video|forecast|player note|new player|notes|news|add|watch)$/i.test(clean(x.textContent)));return a?clean(a.textContent):clean(cell.textContent).split(/Video|Forecast|Player Note|New player note|No new player/i)[0].trim()}const teams=tables.map((t,i)=>{const info=teamInfo(t,i),players=[...t.querySelectorAll('tbody tr')].map(row=>{const c=[...row.querySelectorAll('th,td')];if(c.length<2)return null;const pos=clean(c[0].textContent),name=playerName(c[1]);if(!name||/^player$/i.test(name)||/^pos$/i.test(pos))return null;return{name,pos,team:'',starter:!/^(BN|IR|IR\\+|NA)$/i.test(pos)}}).filter(Boolean);return{teamId:info.teamId,name:info.name,players}}).filter(t=>t.players.length);const idText='(ID# '+LEAGUE+')',node=[...doc.querySelectorAll('h1,h2,h3,h4,h5,h6,div,span')].find(x=>clean(x.textContent).includes(idText)&&clean(x.textContent).length<150),leagueName=node?clean(node.textContent).replace(new RegExp('\\\\s*\\\\(ID#\\\\s*'+LEAGUE+'\\\\).*'),''):'Yahoo League '+LEAGUE;const data={provider:'Yahoo',leagueId:LEAGUE,sourceTeamId:TEAM,leagueName,rosterUrl,fetchedAt:new Date().toISOString(),teams};console.table(teams.map((t,i)=>({index:i+1,teamId:t.teamId,team:t.name,players:t.players.length})));window.yahooFantasyData=data;try{copy(JSON.stringify(data));console.log('Yahoo JSON copied as fallback.')}catch{}const w=window.open(LAB,'fantasyRosterLab');setTimeout(()=>w?.postMessage({type:'YAHOO_FANTASY_DATA',data},new URL(LAB).origin),1800);console.log('YAHOO IMPORT READY');})();`}
+function refreshYahoo(){const l=$('yahooId').value.trim()||'1251448',t=$('yahooTeamId').value.trim()||'6';$('yahooOpenLink').href='https://football.fantasysports.yahoo.com/f1/'+encodeURIComponent(l)+'/'+encodeURIComponent(t);$('yahooConsoleCommand').value=buildYahoo()}
+async function copyYahooConsoleCommand(){refreshYahoo();await copyText($('yahooConsoleCommand').value,'yahooCopyStatus')}
+async function pasteYahooFromClipboard(){try{$('yahooPaste').value=await navigator.clipboard.readText();importYahooPaste()}catch(e){$('yahooOut').innerHTML=status('Clipboard read blocked. Paste manually.',true)}}
+function importYahooPaste(){try{const d=JSON.parse($('yahooPaste').value);saveYahoo(d);renderYahoo(d)}catch(e){$('yahooOut').innerHTML=status('Yahoo JSON import failed: '+e.message,true)}}
+function clearYahooSaved(){localStorage.removeItem(YAHOO_KEY);localStorage.removeItem(YAHOO_KEY+':at');$('yahooOut').innerHTML='';updateCache()}
+function trusted(origin,root){try{const h=new URL(origin).hostname.toLowerCase();return h===root||h.endsWith('.'+root)}catch{return false}}
+window.addEventListener('message',e=>{try{if(e.data?.type==='ESPN_FANTASY_DATA'&&trusted(e.origin,'espn.com')){saveESPN(e.data.data);renderESPN(e.data.data,'ESPN roster received from logged-in ESPN.')}if(e.data?.type==='YAHOO_FANTASY_DATA'&&trusted(e.origin,'yahoo.com')){saveYahoo(e.data.data);renderYahoo(e.data.data,'Yahoo roster received from logged-in Yahoo.')}}catch(err){console.error(err)}});
+function updateCache(){const ea=localStorage.getItem(ESPN_KEY+':at'),ya=localStorage.getItem(YAHOO_KEY+':at');$('espnCacheInfo').textContent=localStorage.getItem(ESPN_KEY)?'Saved ESPN roster. Last import: '+new Date(ea).toLocaleString()+'.':'No saved ESPN roster found yet.';$('yahooCacheInfo').textContent=localStorage.getItem(YAHOO_KEY)?'Saved Yahoo roster. Last import: '+new Date(ya).toLocaleString()+'.':'No saved Yahoo roster found yet.'}
+$('espnId').addEventListener('input',refreshESPN);$('espnSeason').addEventListener('input',refreshESPN);$('yahooId').addEventListener('input',refreshYahoo);$('yahooTeamId').addEventListener('input',refreshYahoo);refreshESPN();refreshYahoo();updateCache();const req=(location.hash||'').slice(1);activateTab(['sleeper','espn','yahoo'].includes(req)?req:'sleeper');const es=localStorage.getItem(ESPN_KEY),ys=localStorage.getItem(YAHOO_KEY);if(es&&req==='espn')try{renderESPN(JSON.parse(es),'Loaded saved ESPN roster.')}catch{}if(ys&&req==='yahoo')try{renderYahoo(JSON.parse(ys),'Loaded saved Yahoo roster.')}catch{}
 </script>
 </body>
 </html>
