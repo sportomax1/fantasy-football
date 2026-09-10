@@ -1,20 +1,246 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Fantasy Roster API Lab</title>
 <style>
-:root{color-scheme:dark;--bg:#090b10;--card:#111722;--card2:#171f2d;--line:#293447;--text:#f6f8fb;--muted:#94a3b8;--accent:#f7b500;--ok:#42d392;--bad:#ff6b6b}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#080a0f,#101827);font:14px system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}header{padding:24px max(18px,calc((100% - 1200px)/2));border-bottom:1px solid var(--line);background:#090b10dd;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:var(--muted)}main{max-width:1200px;margin:auto;padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.tab{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:700}.tab.active{background:var(--accent);color:#111;border-color:var(--accent)}.panel{display:none}.panel.active{display:block}.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}input{width:100%;background:#080c13;color:white;border:1px solid var(--line);border-radius:9px;padding:11px}button.go{background:var(--accent);border:0;border-radius:9px;padding:11px 18px;font-weight:800;cursor:pointer;align-self:end}.note{color:var(--muted);margin-top:10px}.status{padding:10px 12px;border-radius:9px;background:var(--card2);margin:12px 0}.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.team h3{margin:0;padding:12px 14px;background:var(--card2);font-size:15px}.player{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:8px 14px;border-top:1px solid #202a39;align-items:center}.pos{color:var(--accent);font-weight:800}.nfl{color:var(--muted);min-width:30px;text-align:right}.starter{font-size:10px;border:1px solid #42516a;border-radius:10px;padding:2px 6px;color:#b9c5d6}details{margin-top:14px}pre{white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:#070a0f;border:1px solid var(--line);padding:12px;border-radius:10px;font-size:11px}.summary{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);margin-bottom:12px}.summary b{color:white}@media(max-width:600px){header{padding:16px}main{padding:12px}.teams{grid-template-columns:1fr}}
-</style></head><body>
-<header><h1>🏈 Fantasy Roster API Lab</h1><p>Preset with Kevin's 2026 ESPN, Yahoo and Sleeper leagues.</p></header><main>
+:root{color-scheme:dark;--bg:#090b10;--card:#111722;--card2:#171f2d;--line:#293447;--text:#f6f8fb;--muted:#94a3b8;--accent:#f7b500;--ok:#42d392;--bad:#ff6b6b;--info:#63b3ff}*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#080a0f,#101827);font:14px system-ui,-apple-system,Segoe UI,sans-serif;color:var(--text)}header{padding:24px max(18px,calc((100% - 1200px)/2));border-bottom:1px solid var(--line);background:#090b10dd;position:sticky;top:0;z-index:5;backdrop-filter:blur(12px)}h1{margin:0;font-size:24px}header p{margin:6px 0 0;color:var(--muted)}main{max-width:1200px;margin:auto;padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:16px}.tab{border:1px solid var(--line);background:var(--card);color:var(--text);padding:10px 16px;border-radius:10px;cursor:pointer;font-weight:700}.tab.active{background:var(--accent);color:#111;border-color:var(--accent)}.panel{display:none}.panel.active{display:block}.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}input,textarea{width:100%;background:#080c13;color:white;border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit}textarea{min-height:140px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}button.go,.button-link{background:var(--accent);color:#111;border:0;border-radius:9px;padding:11px 18px;font-weight:800;cursor:pointer;align-self:end;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}button.secondary,.button-link.secondary{background:var(--card2);color:var(--text);border:1px solid var(--line)}button.danger{background:#3a171b;color:#ffb2b2;border:1px solid #71343b}.note{color:var(--muted);margin-top:10px;line-height:1.45}.mini{font-size:12px;color:var(--muted)}.step{border-left:3px solid var(--accent);padding-left:12px;margin:14px 0}.step b{color:white}.status{padding:10px 12px;border-radius:9px;background:var(--card2);margin:12px 0}.status.ok{color:var(--ok)}.status.bad{color:var(--bad)}.status.info{color:var(--info)}.teams{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}.team{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}.team h3{margin:0;padding:12px 14px;background:var(--card2);font-size:15px}.player{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:8px 14px;border-top:1px solid #202a39;align-items:center}.pos{color:var(--accent);font-weight:800}.nfl{color:var(--muted);min-width:30px;text-align:right}.starter{font-size:10px;border:1px solid #42516a;border-radius:10px;padding:2px 6px;color:#b9c5d6}details{margin-top:14px}pre{white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:#070a0f;border:1px solid var(--line);padding:12px;border-radius:10px;font-size:11px}.summary{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);margin-bottom:12px}.summary b{color:white}.cached{margin-top:10px;padding:9px 11px;border:1px dashed var(--line);border-radius:9px;color:var(--muted)}code{color:#d5e7ff}@media(max-width:600px){header{padding:16px}main{padding:12px}.teams{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.actions>*{flex:1 1 100%}}
+</style>
+</head>
+<body>
+<header><h1>🏈 Fantasy Roster API Lab</h1><p>Preset 2026 ESPN, Yahoo and Sleeper leagues. Private ESPN import now supported without storing ESPN cookies.</p></header>
+<main>
 <div class="tabs"><button class="tab active" data-p="sleeper">Sleeper</button><button class="tab" data-p="espn">ESPN</button><button class="tab" data-p="yahoo">Yahoo</button></div>
-<section id="sleeper" class="panel active"><div class="box"><div class="grid"><div><label>League ID</label><input id="sleeperId" value="1389704048822722560"></div><button class="go" onclick="loadSleeper()">Load Rosters</button></div><div class="note">Preset Sleeper league. No authentication required.</div></div><div id="sleeperOut"></div></section>
-<section id="espn" class="panel"><div class="box"><div class="grid"><div><label>League ID</label><input id="espnId" value="102332"></div><div><label>Season</label><input id="espnSeason" type="number" value="2026"></div><button class="go" onclick="loadESPN()">Load Rosters</button></div><div class="note">Preset from the ESPN league URL. Uses the current lm-api-reads fantasy host and requests mTeam + mRoster + mSettings.</div></div><div id="espnOut"></div></section>
-<section id="yahoo" class="panel"><div class="box"><div class="grid"><div><label>Yahoo League ID</label><input id="yahooId" value="1251448"></div><div><label>NFL game key</label><input id="yahooGame" placeholder="Needed to form gameKey.l.1251448"></div><div><label>OAuth access token</label><input id="yahooToken" type="password" placeholder="Required by Yahoo"></div><button class="go" onclick="loadYahoo()">Test Yahoo</button></div><div class="note">League ID is preset. Yahoo still requires its season game key plus an approved OAuth access token.</div></div><div id="yahooOut"></div></section>
-</main><script>
-const $=id=>document.getElementById(id);document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));b.classList.add('active');$(b.dataset.p).classList.add('active')});
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function status(msg,bad=false){return `<div class="status ${bad?'bad':'ok'}">${esc(msg)}</div>`}function raw(data){return `<details><summary>Raw API response</summary><pre>${esc(JSON.stringify(data,null,2))}</pre></details>`}function render(provider,leagueName,teams,data){let players=teams.reduce((n,t)=>n+t.players.length,0);return `<div class="summary"><span>Provider <b>${esc(provider)}</b></span><span>League <b>${esc(leagueName||'Unknown')}</b></span><span>Teams <b>${teams.length}</b></span><span>Roster spots <b>${players}</b></span></div><div class="teams">${teams.map(t=>`<article class="team"><h3>${esc(t.name)}</h3>${t.players.length?t.players.map(p=>`<div class="player"><span>${esc(p.name)} ${p.starter?'<span class="starter">START</span>':''}</span><span class="pos">${esc(p.pos||'')}</span><span class="nfl">${esc(p.team||'')}</span></div>`).join(''):'<div class="player"><span>No players returned</span></div>'}</article>`).join('')}</div>${raw(data)}`}async function getJSON(url,opts){let r=await fetch(url,opts);let text=await r.text();if(!r.ok)throw new Error(`${r.status} ${r.statusText}: ${text.slice(0,300)}`);try{return JSON.parse(text)}catch{throw new Error('Response was not JSON: '+text.slice(0,300))}}
-async function loadSleeper(){const out=$('sleeperOut'),id=$('sleeperId').value.trim();out.innerHTML=status('Loading Sleeper league and rosters…');try{const base='https://api.sleeper.app/v1';const [league,rosters,users,players]=await Promise.all([getJSON(`${base}/league/${encodeURIComponent(id)}`),getJSON(`${base}/league/${encodeURIComponent(id)}/rosters`),getJSON(`${base}/league/${encodeURIComponent(id)}/users`),getJSON(`${base}/players/nfl`)]);const userMap=Object.fromEntries(users.map(u=>[u.user_id,u]));const teams=rosters.map(r=>{const u=userMap[r.owner_id]||{},starters=new Set(r.starters||[]);return{name:u.metadata?.team_name||u.display_name||u.username||`Roster ${r.roster_id}`,players:(r.players||[]).map(pid=>{const p=players[pid];return{name:p?.full_name||(p?.first_name?`${p.first_name} ${p.last_name||''}`:pid),pos:p?.position||'',team:p?.team||'',starter:starters.has(pid)}})}});out.innerHTML=status('Sleeper roster import succeeded.')+render('Sleeper',league.name,teams,{league,rosters,users})}catch(e){out.innerHTML=status(`Sleeper failed: ${e.message}`,true)}}
-async function loadESPN(){const out=$('espnOut'),id=$('espnId').value.trim(),season=$('espnSeason').value||'2026';out.innerHTML=status('Loading ESPN league…');const url=`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${encodeURIComponent(season)}/segments/0/leagues/${encodeURIComponent(id)}?view=mTeam&view=mRoster&view=mSettings`;try{const d=await getJSON(url);const members=Object.fromEntries((d.members||[]).map(m=>[m.id,m]));const teams=(d.teams||[]).map(t=>{const owner=members[(t.owners||[])[0]]||{};return{name:t.name||((t.location&&t.nickname)?`${t.location} ${t.nickname}`:owner.displayName||`Team ${t.id}`),players:(t.roster?.entries||[]).map(e=>{const p=e.playerPoolEntry?.player||{};return{name:p.fullName||`ESPN ${p.id||'unknown'}`,pos:positionName(p.defaultPositionId),team:nflTeam(p.proTeamId),starter:e.lineupSlotId!==20&&e.lineupSlotId!==21}})}});out.innerHTML=status('ESPN roster import succeeded.')+render('ESPN',d.settings?.name||`League ${id}`,teams,d)}catch(e){out.innerHTML=status(`ESPN failed: ${e.message}. The league may be private or ESPN may be blocking browser-side access.`,true)+`<details><summary>Endpoint attempted</summary><pre>${esc(url)}</pre></details>`}}function positionName(id){return({1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'DST'})[id]||String(id||'')}function nflTeam(id){return({1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GB',10:'TEN',11:'IND',12:'KC',13:'LV',14:'LAR',15:'MIA',16:'MIN',17:'NE',18:'NO',19:'NYG',20:'NYJ',21:'PHI',22:'ARI',23:'PIT',24:'LAC',25:'SF',26:'SEA',27:'TB',28:'WAS',29:'CAR',30:'JAX',33:'BAL',34:'HOU'})[id]||''}
-async function loadYahoo(){const out=$('yahooOut'),input=$('yahooId').value.trim(),game=$('yahooGame').value.trim(),token=$('yahooToken').value.trim();if(!token){out.innerHTML=status('Yahoo league ID is preset, but Yahoo still requires an OAuth access token.',true);return}if(!game){out.innerHTML=status('Enter the Yahoo NFL game key for the 2026 season so the full league key can be formed.',true);return}const key=input.includes('.l.')?input:`${game}.l.${input}`,url=`https://fantasysports.yahooapis.com/fantasy/v2/league/${encodeURIComponent(key)}/teams;out=roster?format=json`;out.innerHTML=status('Testing Yahoo API…');try{const d=await getJSON(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});out.innerHTML=status('Yahoo request succeeded. Raw response shown below.')+raw(d)}catch(e){out.innerHTML=status(`Yahoo failed: ${e.message}. Yahoo requires approved OAuth access and may block direct browser CORS requests.`,true)+`<details><summary>Endpoint attempted</summary><pre>${esc(url)}</pre></details>`}}
-</script></body></html>
+
+<section id="sleeper" class="panel active">
+  <div class="box">
+    <div class="grid"><div><label>League ID</label><input id="sleeperId" value="1389704048822722560"></div><button class="go" onclick="loadSleeper()">Load Rosters</button></div>
+    <div class="note">Preset Sleeper league. No authentication required.</div>
+  </div>
+  <div id="sleeperOut"></div>
+</section>
+
+<section id="espn" class="panel">
+  <div class="box">
+    <div class="grid">
+      <div><label>League ID</label><input id="espnId" value="102332"></div>
+      <div><label>Season</label><input id="espnSeason" type="number" value="2026"></div>
+      <button class="go" onclick="loadESPN()">Try Direct Load</button>
+    </div>
+    <div class="note">Your ESPN league is private. Direct loading from GitHub Pages returns 401 because ESPN will not send your private ESPN session to this site. Use the authenticated ESPN Console import below instead.</div>
+  </div>
+
+  <div class="box">
+    <h2 style="margin:0 0 8px">Private ESPN League Import</h2>
+    <div class="step"><b>1. Open your ESPN league while logged in.</b><div class="mini">League 102332, season 2026.</div></div>
+    <div class="actions">
+      <a class="button-link secondary" href="https://fantasy.espn.com/football/league?seasonId=2026&leagueId=102332" target="_blank" rel="noopener">Open ESPN League</a>
+      <button class="go" onclick="copyESPNConsoleCommand()">Copy ESPN Console Command</button>
+    </div>
+    <div id="consoleCopyStatus"></div>
+
+    <div class="step"><b>2. In ESPN DevTools → Console, paste and run the copied command.</b><div class="mini">It fetches the roster while ESPN already has you authenticated. It does not expose your <code>espn_s2</code> or <code>SWID</code> in this HTML.</div></div>
+    <textarea id="espnConsoleCommand" readonly aria-label="ESPN console command"></textarea>
+
+    <div class="step"><b>3. The command will try to open this page and send the roster automatically.</b><div class="mini">It also copies the ESPN JSON to your clipboard as a fallback.</div></div>
+    <div class="actions">
+      <button class="go" onclick="pasteESPNFromClipboard()">Paste JSON From Clipboard</button>
+      <button class="secondary" onclick="importESPNPaste()">Import Pasted JSON</button>
+      <button class="danger" onclick="clearESPNSaved()">Clear Saved ESPN</button>
+    </div>
+    <label style="margin-top:12px" for="espnPaste">ESPN JSON fallback</label>
+    <textarea id="espnPaste" placeholder="If automatic transfer is blocked, paste the JSON copied by the ESPN console command here, then tap Import Pasted JSON."></textarea>
+    <div id="espnCacheInfo" class="cached">No saved ESPN roster found yet.</div>
+  </div>
+
+  <div id="espnOut"></div>
+</section>
+
+<section id="yahoo" class="panel">
+  <div class="box">
+    <div class="grid">
+      <div><label>Yahoo League ID</label><input id="yahooId" value="1251448"></div>
+      <div><label>NFL game key</label><input id="yahooGame" placeholder="Needed to form gameKey.l.1251448"></div>
+      <div><label>OAuth access token</label><input id="yahooToken" type="password" placeholder="Required by Yahoo"></div>
+      <button class="go" onclick="loadYahoo()">Test Yahoo</button>
+    </div>
+    <div class="note">League ID is preset. Yahoo still requires its season game key plus an approved OAuth access token.</div>
+  </div>
+  <div id="yahooOut"></div>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const ESPN_STORAGE_KEY='fantasyRosterLab:espn:102332:2026';
+const ESPN_META_KEY=ESPN_STORAGE_KEY+':meta';
+
+function activateTab(name){
+  document.querySelectorAll('.tab,.panel').forEach(x=>x.classList.remove('active'));
+  const button=document.querySelector(`.tab[data-p="${name}"]`);
+  if(button) button.classList.add('active');
+  const panel=$(name); if(panel) panel.classList.add('active');
+}
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>activateTab(b.dataset.p));
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function status(msg,bad=false,info=false){return `<div class="status ${bad?'bad':info?'info':'ok'}">${esc(msg)}</div>`}
+function raw(data){return `<details><summary>Raw API response</summary><pre>${esc(JSON.stringify(data,null,2))}</pre></details>`}
+function render(provider,leagueName,teams,data){
+  const players=teams.reduce((n,t)=>n+t.players.length,0);
+  return `<div class="summary"><span>Provider <b>${esc(provider)}</b></span><span>League <b>${esc(leagueName||'Unknown')}</b></span><span>Teams <b>${teams.length}</b></span><span>Roster spots <b>${players}</b></span></div><div class="teams">${teams.map(t=>`<article class="team"><h3>${esc(t.name)}</h3>${t.players.length?t.players.map(p=>`<div class="player"><span>${esc(p.name)} ${p.starter?'<span class="starter">START</span>':''}</span><span class="pos">${esc(p.pos||'')}</span><span class="nfl">${esc(p.team||'')}</span></div>`).join(''):'<div class="player"><span>No players returned</span></div>'}</article>`).join('')}</div>${raw(data)}`;
+}
+async function getJSON(url,opts){
+  const r=await fetch(url,opts); const text=await r.text();
+  if(!r.ok){const err=new Error(`${r.status} ${r.statusText}: ${text.slice(0,300)}`);err.status=r.status;err.body=text;throw err}
+  try{return JSON.parse(text)}catch{throw new Error('Response was not JSON: '+text.slice(0,300))}
+}
+
+async function loadSleeper(){
+  const out=$('sleeperOut'),id=$('sleeperId').value.trim();
+  out.innerHTML=status('Loading Sleeper league and rosters…',false,true);
+  try{
+    const base='https://api.sleeper.app/v1';
+    const [league,rosters,users,players]=await Promise.all([
+      getJSON(`${base}/league/${encodeURIComponent(id)}`),
+      getJSON(`${base}/league/${encodeURIComponent(id)}/rosters`),
+      getJSON(`${base}/league/${encodeURIComponent(id)}/users`),
+      getJSON(`${base}/players/nfl`)
+    ]);
+    const userMap=Object.fromEntries(users.map(u=>[u.user_id,u]));
+    const teams=rosters.map(r=>{
+      const u=userMap[r.owner_id]||{},starters=new Set(r.starters||[]);
+      return {name:u.metadata?.team_name||u.display_name||u.username||`Roster ${r.roster_id}`,players:(r.players||[]).map(pid=>{
+        const p=players[pid];return {name:p?.full_name||(p?.first_name?`${p.first_name} ${p.last_name||''}`:pid),pos:p?.position||'',team:p?.team||'',starter:starters.has(pid)}
+      })};
+    });
+    out.innerHTML=status('Sleeper roster import succeeded.')+render('Sleeper',league.name,teams,{league,rosters,users});
+  }catch(e){out.innerHTML=status(`Sleeper failed: ${e.message}`,true)}
+}
+
+function positionName(id){return({1:'QB',2:'RB',3:'WR',4:'TE',5:'K',16:'DST'})[id]||String(id||'')}
+function nflTeam(id){return({1:'ATL',2:'BUF',3:'CHI',4:'CIN',5:'CLE',6:'DAL',7:'DEN',8:'DET',9:'GB',10:'TEN',11:'IND',12:'KC',13:'LV',14:'LAR',15:'MIA',16:'MIN',17:'NE',18:'NO',19:'NYG',20:'NYJ',21:'PHI',22:'ARI',23:'PIT',24:'LAC',25:'SF',26:'SEA',27:'TB',28:'WAS',29:'CAR',30:'JAX',33:'BAL',34:'HOU'})[id]||''}
+
+function normalizeESPN(d){
+  const members=Object.fromEntries((d.members||[]).map(m=>[m.id,m]));
+  return (d.teams||[]).map(t=>{
+    const owner=members[(t.owners||[])[0]]||{};
+    return {
+      name:t.name||((t.location&&t.nickname)?`${t.location} ${t.nickname}`:owner.displayName||`Team ${t.id}`),
+      players:(t.roster?.entries||[]).map(e=>{
+        const p=e.playerPoolEntry?.player||{};
+        return {name:p.fullName||`ESPN ${p.id||'unknown'}`,pos:positionName(p.defaultPositionId),team:nflTeam(p.proTeamId),starter:e.lineupSlotId!==20&&e.lineupSlotId!==21};
+      })
+    };
+  });
+}
+function saveESPNData(d,source='ESPN import'){
+  try{
+    localStorage.setItem(ESPN_STORAGE_KEY,JSON.stringify(d));
+    localStorage.setItem(ESPN_META_KEY,JSON.stringify({savedAt:new Date().toISOString(),source}));
+    updateESPNCacheInfo();
+  }catch(e){console.warn('Could not save ESPN data locally:',e)}
+}
+function renderESPNData(d,message='ESPN roster imported successfully.'){
+  if(!d||!Array.isArray(d.teams)) throw new Error('JSON does not look like an ESPN fantasy league response (teams array missing).');
+  const teams=normalizeESPN(d);
+  $('espnOut').innerHTML=status(message)+render('ESPN',d.settings?.name||`League ${d.id||$('espnId').value}`,teams,d);
+  activateTab('espn');
+}
+function updateESPNCacheInfo(){
+  const box=$('espnCacheInfo'); if(!box) return;
+  const rawMeta=localStorage.getItem(ESPN_META_KEY),saved=localStorage.getItem(ESPN_STORAGE_KEY);
+  if(!saved){box.textContent='No saved ESPN roster found yet.';return}
+  let meta={};try{meta=JSON.parse(rawMeta||'{}')}catch{}
+  const when=meta.savedAt?new Date(meta.savedAt).toLocaleString():'unknown time';
+  box.textContent=`Saved ESPN roster available locally. Last saved: ${when}${meta.source?` (${meta.source})`:''}. It will reload automatically on this device.`;
+}
+function restoreESPNData(){
+  const saved=localStorage.getItem(ESPN_STORAGE_KEY); updateESPNCacheInfo(); if(!saved) return;
+  try{const d=JSON.parse(saved);renderESPNData(d,'Loaded saved ESPN roster from this device.')}catch(e){console.warn('Saved ESPN data was invalid:',e)}
+}
+function clearESPNSaved(){
+  localStorage.removeItem(ESPN_STORAGE_KEY);localStorage.removeItem(ESPN_META_KEY);$('espnPaste').value='';$('espnOut').innerHTML=status('Saved ESPN roster cleared from this device.',false,true);updateESPNCacheInfo();
+}
+
+async function loadESPN(){
+  const out=$('espnOut'),id=$('espnId').value.trim(),season=$('espnSeason').value||'2026';
+  out.innerHTML=status('Trying direct ESPN load…',false,true);
+  const url=`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${encodeURIComponent(season)}/segments/0/leagues/${encodeURIComponent(id)}?view=mTeam&view=mRoster&view=mSettings`;
+  try{
+    const d=await getJSON(url);
+    saveESPNData(d,'direct load');
+    renderESPNData(d,'ESPN direct roster import succeeded.');
+  }catch(e){
+    if(e.status===401){
+      out.innerHTML=status('ESPN returned 401 because this league is private. Use “Copy ESPN Console Command” below while logged into ESPN. That authenticated console request is the supported workflow for this test page.',true);
+    }else{
+      out.innerHTML=status(`ESPN direct load failed: ${e.message}. Use the authenticated ESPN Console import below.`,true);
+    }
+  }
+}
+
+function buildESPNConsoleCommand(){
+  const leagueId=$('espnId')?.value.trim()||'102332';
+  const season=$('espnSeason')?.value||'2026';
+  const labUrl='https://sportomax1.github.io/sports/roster-api-test.html#espn';
+  return `(async()=>{\n  const leagueId=${JSON.stringify(Number(leagueId)||102332)};\n  const season=${JSON.stringify(Number(season)||2026)};\n  const url=\`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/\${season}/segments/0/leagues/\${leagueId}?view=mTeam&view=mRoster&view=mSettings\`;\n  const r=await fetch(url,{credentials:'include',headers:{Accept:'application/json'}});\n  const text=await r.text();\n  console.log('ESPN HTTP STATUS:',r.status);\n  if(!r.ok){console.error(text);return;}\n  const data=JSON.parse(text);\n  window.espnFantasyData=data;\n  const json=JSON.stringify(data);\n  try{if(typeof copy==='function'){copy(json);console.log('ESPN JSON copied to clipboard as fallback.');}}catch(e){}\n  console.table((data.teams||[]).map(t=>({id:t.id,team:t.name,rosterSize:t.roster?.entries?.length||0})));\n  const lab=window.open(${JSON.stringify(labUrl)},'espnRosterLab');\n  const payload={type:'ESPN_FANTASY_DATA',leagueId,season,data};\n  let tries=0;\n  const timer=setInterval(()=>{tries++;try{lab?.postMessage(payload,'https://sportomax1.github.io');}catch(e){}if(tries>=12)clearInterval(timer);},500);\n  console.log('SUCCESS: roster fetched. The Roster API Lab should open/import automatically. If popup transfer is blocked, the JSON is already on your clipboard for manual paste.');\n})();`;
+}
+function refreshConsoleCommand(){$('espnConsoleCommand').value=buildESPNConsoleCommand()}
+async function copyText(text,sourceEl){
+  try{await navigator.clipboard.writeText(text);return true}catch{}
+  try{sourceEl.focus();sourceEl.select();sourceEl.setSelectionRange(0,sourceEl.value.length);return document.execCommand('copy')}catch{return false}
+}
+async function copyESPNConsoleCommand(){
+  refreshConsoleCommand();
+  const ok=await copyText($('espnConsoleCommand').value,$('espnConsoleCommand'));
+  $('consoleCopyStatus').innerHTML=status(ok?'ESPN console command copied. Open ESPN → DevTools → Console → paste → Enter.':'Could not access clipboard. Select the command below and copy it manually.',!ok);
+}
+async function pasteESPNFromClipboard(){
+  try{
+    const text=await navigator.clipboard.readText();
+    $('espnPaste').value=text;
+    importESPNPaste();
+  }catch(e){$('espnOut').innerHTML=status('Clipboard read was blocked by this browser. Paste the ESPN JSON into the box manually, then tap Import Pasted JSON.',true)}
+}
+function importESPNPaste(){
+  const text=$('espnPaste').value.trim();
+  if(!text){$('espnOut').innerHTML=status('Paste the ESPN JSON first.',true);return}
+  try{
+    const d=JSON.parse(text);
+    saveESPNData(d,'pasted JSON');
+    renderESPNData(d,'ESPN pasted roster imported and saved locally.');
+  }catch(e){$('espnOut').innerHTML=status(`Could not import ESPN JSON: ${e.message}`,true)}
+}
+
+const ESPN_ALLOWED_ORIGINS=new Set(['https://fantasy.espn.com','https://www.espn.com']);
+window.addEventListener('message',event=>{
+  if(!ESPN_ALLOWED_ORIGINS.has(event.origin)) return;
+  const msg=event.data;
+  if(!msg||msg.type!=='ESPN_FANTASY_DATA'||!msg.data) return;
+  try{
+    if(String(msg.leagueId||msg.data.id||'')!=='102332') console.warn('Received ESPN data for unexpected league:',msg.leagueId||msg.data.id);
+    saveESPNData(msg.data,'automatic ESPN transfer');
+    renderESPNData(msg.data,'ESPN roster received automatically from your logged-in ESPN page.');
+    try{event.source?.postMessage({type:'ESPN_FANTASY_ACK'},event.origin)}catch{}
+  }catch(e){$('espnOut').innerHTML=status(`ESPN transfer arrived but could not be rendered: ${e.message}`,true)}
+});
+
+async function loadYahoo(){
+  const out=$('yahooOut'),input=$('yahooId').value.trim(),game=$('yahooGame').value.trim(),token=$('yahooToken').value.trim();
+  if(!token){out.innerHTML=status('Yahoo league ID is preset, but Yahoo still requires an OAuth access token.',true);return}
+  if(!game){out.innerHTML=status('Enter the Yahoo NFL game key for the 2026 season so the full league key can be formed.',true);return}
+  const key=input.includes('.l.')?input:`${game}.l.${input}`,url=`https://fantasysports.yahooapis.com/fantasy/v2/league/${encodeURIComponent(key)}/teams;out=roster?format=json`;
+  out.innerHTML=status('Testing Yahoo API…',false,true);
+  try{const d=await getJSON(url,{headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});out.innerHTML=status('Yahoo request succeeded. Raw response shown below.')+raw(d)}catch(e){out.innerHTML=status(`Yahoo failed: ${e.message}. Yahoo requires approved OAuth access and may block direct browser CORS requests.`,true)}
+}
+
+refreshConsoleCommand();
+$('espnId').addEventListener('input',refreshConsoleCommand);
+$('espnSeason').addEventListener('input',refreshConsoleCommand);
+if(location.hash==='#espn') activateTab('espn');
+restoreESPNData();
+</script>
+</body>
+</html>
