@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0e12">
 <title>Fantasy Weekend Tracker</title>
 <link rel="stylesheet" href="weekend-tracker.css?v=20260909f">
-<link rel="stylesheet" href="weekend-tracker-leaders.css?v=20260910b">
+<link rel="stylesheet" href="weekend-tracker-leaders.css?v=20260910c">
 <link rel="stylesheet" href="weekend-tracker-liveux.css?v=20260909f">
 </head>
 <body>
@@ -36,7 +36,13 @@
     <section id="leadersView" class="leadersView">
       <div class="leadersShell">
         <div class="leadersToolbar"><div><b>League Leaders</b><span class="statuspill"> Full NFL player pool · highest fantasy points to lowest</span></div><div class="right"><label class="statuspill">Scoring league <select id="leadersLeagueFilter" class="field"></select></label><label class="leadersToggle"><input id="leadersHideZero" type="checkbox" checked> Hide 0 pts</label></div></div>
-        <div class="leadersFilterBar"><div id="leadersGameFilters" class="gameFilterChips" aria-label="Game status filters"></div><label class="leadersGameSelectWrap"><span class="statuspill">Game</span><select id="leadersGameSelect" class="field"><option value="all">All matchups</option></select></label></div>
+        <div class="leadersFilterBar">
+          <div class="leadersFilterGroup"><span class="filterGroupLabel">Status</span><div id="leadersGameFilters" class="gameFilterChips" aria-label="Game status filters"></div></div>
+          <div class="leadersFilterGroup"><span class="filterGroupLabel">Window</span><div id="leadersWindowFilters" class="gameFilterChips" aria-label="Game window filters"></div></div>
+          <div class="leadersFilterGroup"><span class="filterGroupLabel">Field</span><div id="leadersSituationFilters" class="gameFilterChips" aria-label="Live field situation filters"></div></div>
+          <label class="leadersGameSelectWrap"><span class="statuspill">Game</span><select id="leadersGameSelect" class="field"><option value="all">All matchups</option></select></label>
+        </div>
+        <div class="leadersFeedBar"><div class="leadersFeedTitle">Live scoring feed<small>derived from stat changes each refresh</small></div><div id="leadersScoringFeed" class="leadersScoringFeed"></div><button id="leadersFeedClear" class="btn small feedClear">Clear</button></div>
         <div id="leadersLanes" class="leaderLanes"></div>
       </div>
     </section>
@@ -51,9 +57,7 @@
 <div id="toast" class="toast"></div>
 
 <script src="weekend-tracker-core.js?v=20260909f"></script>
-<script src="weekend-tracker-ui.js?v=20260909f"></script>
-<script src="weekend-tracker-data.js?v=20260909f"></script>
-<script src="weekend-tracker-leaders.js?v=20260910b"></script>
-<script src="weekend-tracker-liveux.js?v=20260909f"></script>
+<script src="weekend-tracker-ui.js?v=20260910c"></script>
+<script src="weekend-tracker-data.js?v=20260910c"></script>
 </body>
 </html>
