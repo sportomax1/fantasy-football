@@ -22,7 +22,7 @@
       <button id="openDSBtn" class="btn ds">Open DraftSharks</button>
       <button id="copyExporterBtn" class="btn">Copy Exporter</button>
       <button id="pasteImportBtn" class="btn primary">Paste / Import</button>
-      <label class="btn file-btn">Upload CSV/TSV<input id="importFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"></label>
+      <label class="btn file-btn">Upload CSV / TSV / MD<input id="importFile" type="file" accept=".csv,.tsv,.txt,.md,text/csv,text/tab-separated-values,text/plain,text/markdown"></label>
       <span id="importStatus" class="import-status">No DraftSharks snapshot imported</span>
       <button id="clearImportBtn" class="btn ghost mini-action">Clear Import</button>
     </div>
@@ -98,18 +98,18 @@
 
 <div id="importModal" class="modal-backdrop">
   <section class="modal-card import-card">
-    <div class="modal-head"><div><b>Import DraftSharks Rankings</b><small>Zero Parse credits</small></div><button id="closeImportBtn" class="btn ghost">Close</button></div>
+    <div class="modal-head"><div><b>Import DraftSharks Rankings</b><small>CSV, TSV, pasted spreadsheet, or Markdown table · zero Parse credits</small></div><button id="closeImportBtn" class="btn ghost">Close</button></div>
     <div class="import-guide">
-      <b>Fast workflow:</b> Open DraftSharks → DevTools Console → paste exporter → Enter → return here → Paste from Clipboard / ⌘V → Import.
+      <b>Paste anything:</b> CSV, tab-separated output, copied Google Sheets/Excel cells, or the Markdown table format from DraftSharks. The importer normalizes team abbreviations, strips position ranks such as RB1 → RB, and matches abbreviated DraftSharks names to ESPN.
     </div>
     <div class="import-actions">
-      <button id="modalOpenDSBtn" class="btn ds">1. Open Half-PPR Rankings</button>
-      <button id="modalCopyExporterBtn" class="btn">2. Copy Console Exporter</button>
-      <button id="readClipboardBtn" class="btn">3. Paste from Clipboard</button>
+      <button id="modalOpenDSBtn" class="btn ds">Open Half-PPR Rankings</button>
+      <button id="modalCopyExporterBtn" class="btn">Copy Console Exporter</button>
+      <button id="readClipboardBtn" class="btn">Paste from Clipboard</button>
     </div>
-    <textarea id="importText" spellcheck="false" placeholder="Paste the copied DraftSharks TSV here…"></textarea>
+    <textarea id="importText" spellcheck="false" placeholder="Paste DraftSharks CSV, TSV, spreadsheet rows, or Markdown table here…"></textarea>
     <div class="modal-foot">
-      <span id="importPreview">Expected columns: Tier, Rank, Player, Team, Pos, Games, ADP, Bye, SOS, Injury Risk, Floor Proj, Cons Proj, DS Proj, Ceil Proj, 3D Value</span>
+      <span id="importPreview">Expected fields: Tier, Rank, Player, Team, Pos, Games, ADP, Bye, SOS, Injury Risk, Floor Proj, Cons Proj, DS Proj, Ceil Proj, 3D Value</span>
       <button id="importTextBtn" class="btn primary">Import & Match to ESPN</button>
     </div>
   </section>
@@ -118,5 +118,6 @@
 <div id="drawerBackdrop" class="drawer-backdrop"><aside class="drawer"><div class="drawer-top"><strong>Player detail</strong><button id="closeDrawer" class="btn ghost">Close</button></div><div id="drawerBody" class="drawer-body"></div></aside></div>
 <div id="toast" class="toast"></div>
 <script src="./draftsharks.js"></script>
+<script src="./draftsharks-import.js"></script>
 </body>
 </html>
