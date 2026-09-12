@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#09111f" />
+  <title>NFL Health Lab — ESPN + DraftSharks</title>
+  <link rel="stylesheet" href="./draftsharks.css" />
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand"><div class="brandmark">🏈</div><div><h1>NFL Health Lab</h1><div class="sub">ESPN active players + team/position filtering + DraftSharks risk and practice intelligence</div></div></div>
+    <div class="healthbar">
+      <div class="health"><span id="espnDot" class="dot"></span><b>ESPN</b><span id="espnHealth" class="muted">not tested</span></div>
+      <div class="health"><span id="dsDot" class="dot"></span><b>DraftSharks</b><span id="dsHealth" class="muted">key needed</span></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="field search"><label>Search active players</label><input id="search" placeholder="Name, team, position…" autocomplete="off" /></div>
+    <div class="field team-picker" id="teamPicker"><label>Team</label><button id="teamButton" class="team-button" type="button"><span class="team-button-main"><span id="teamButtonLogo"></span><span id="teamButtonText">All teams</span></span><span>⌄</span></button><div id="teamMenu" class="team-menu"></div></div>
+    <div class="field"><label>Exact position</label><select id="posFilter"><option value="">All positions</option></select></div>
+    <div class="field"><label>Health / practice</label><select id="healthFilter"><option value="">All health</option><option value="injured">ESPN injury listed</option><option value="healthy">No ESPN injury</option><option value="practice">Any WED/THU/FRI practice note</option><option value="dnp">Any DNP</option><option value="limited">Any limited practice</option><option value="highrisk">DraftSharks risk ≥ 50%</option></select></div>
+    <div class="actions"><button id="refreshBtn" class="btn primary">Refresh data</button><button id="resetBtn" class="btn ghost">Reset</button></div>
+  </div>
+
+  <div class="quickbar" id="quickbar">
+    <span class="quicklabel">Quick view</span>
+    <button class="chip on" data-group="all">All positions</button>
+    <button class="chip fantasy" data-group="fantasy">Fantasy</button>
+    <button class="chip" data-group="offense">Offense</button>
+    <button class="chip defense" data-group="defense">Defense</button>
+    <button class="chip st" data-group="st">Special teams</button>
+  </div>
+
+  <details class="settings">
+    <summary>⚙️ API settings & DraftSharks controls</summary>
+    <div class="settings-grid">
+      <div class="field"><label>Parse API key</label><input id="dsKey" type="password" placeholder="X-API-Key" autocomplete="off" /><div class="hint warn">For private/local use only. Browser SPAs expose keys; use a serverless proxy before public deployment with a real key.</div></div>
+      <div class="field"><label>DraftSharks scoring</label><select id="scoring"><option value="half-ppr">Half-PPR</option><option value="ppr">PPR</option><option value="non-ppr">Non-PPR</option></select><div class="hint">Rankings are loaded with one all-position call instead of four position calls.</div></div>
+      <div class="field"><label>League format</label><select id="leagueType"><option value="standard">Standard</option><option value="superflex">Superflex</option></select><div class="hint">DraftSharks rankings/risk are fantasy-only; ESPN remains the source for the full player board.</div></div>
+      <div class="actions" style="align-self:end;display:flex;gap:8px"><button id="loadDSBtn" class="btn">Load DraftSharks</button><button id="testBtn" class="btn ghost">Test APIs</button></div>
+    </div>
+  </details>
+
+  <div class="summary">
+    <div class="stat"><b id="countPlayers">0</b><span>visible players</span></div>
+    <div class="stat"><b id="countTeams">0</b><span>teams loaded</span></div>
+    <div class="stat"><b id="countInjured">0</b><span>ESPN injuries</span></div>
+    <div class="stat"><b id="countPractice">0</b><span>practice alerts</span></div>
+    <div class="stat"><b id="countDS">0</b><span>DraftSharks matches</span></div>
+    <div class="stat"><b id="lastUpdated">—</b><span>last refresh</span></div>
+  </div>
+
+  <div class="content">
+    <div class="table-head"><div><strong>Active NFL Player Board</strong> <span id="loadState" class="small"></span></div><div class="small">WED / THU / FRI is inferred from recent DraftSharks practice news when available. Click a player for detail.</div></div>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th class="sort" data-sort="name">Player ↕</th><th class="sort" data-sort="teamAbbr">Team ↕</th><th class="sort" data-sort="position">Pos ↕</th><th>ESPN health</th><th>WED</th><th>THU</th><th>FRI</th><th class="sort" data-sort="risk">DS risk ↕</th><th class="sort" data-sort="rank">DS rank ↕</th><th>Projection</th><th>ADP</th><th>Bye</th><th>Jersey</th><th>Experience</th>
+      </tr></thead><tbody id="rows"></tbody>
+    </table><div id="empty" class="empty">Loading ESPN active players…</div></div>
+  </div>
+</div>
+
+<div id="drawerBackdrop" class="drawer-backdrop"><aside class="drawer"><div class="drawer-top"><strong>Player detail</strong><button id="closeDrawer" class="btn ghost">Close</button></div><div id="drawerBody" class="drawer-body"></div></aside></div>
+<div id="toast" class="toast"></div>
+
+<script src="./draftsharks.js"></script>
+</body>
+</html>
