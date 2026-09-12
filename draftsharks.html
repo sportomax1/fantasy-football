@@ -9,63 +9,114 @@
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <div class="brand"><div class="brandmark">🏈</div><div><h1>NFL Health Lab</h1><div class="sub">ESPN active players + team/position filtering + DraftSharks risk and practice intelligence</div></div></div>
-    <div class="healthbar">
-      <div class="health"><span id="espnDot" class="dot"></span><b>ESPN</b><span id="espnHealth" class="muted">not tested</span></div>
-      <div class="health"><span id="dsDot" class="dot"></span><b>DraftSharks</b><span id="dsHealth" class="muted">key needed</span></div>
+  <header class="compact-head">
+    <div class="brandline">
+      <div><b>NFL Health Lab</b><span>ESPN live players + imported DraftSharks rankings</span></div>
+      <div class="source-pills">
+        <span class="source-pill"><i id="espnDot" class="dot"></i> ESPN <em id="espnHealth">loading</em></span>
+        <span class="source-pill"><i id="dsDot" class="dot"></i> DraftSharks <em id="dsHealth">no import</em></span>
+      </div>
     </div>
-  </div>
 
-  <div class="toolbar">
-    <div class="field search"><label>Search active players</label><input id="search" placeholder="Name, team, position…" autocomplete="off" /></div>
-    <div class="field team-picker" id="teamPicker"><label>Team</label><button id="teamButton" class="team-button" type="button"><span class="team-button-main"><span id="teamButtonLogo"></span><span id="teamButtonText">All teams</span></span><span>⌄</span></button><div id="teamMenu" class="team-menu"></div></div>
-    <div class="field"><label>Exact position</label><select id="posFilter"><option value="">All positions</option></select></div>
-    <div class="field"><label>Health / practice</label><select id="healthFilter"><option value="">All health</option><option value="injured">ESPN injury listed</option><option value="healthy">No ESPN injury</option><option value="practice">Any WED/THU/FRI practice note</option><option value="dnp">Any DNP</option><option value="limited">Any limited practice</option><option value="highrisk">DraftSharks risk ≥ 50%</option></select></div>
-    <div class="actions"><button id="refreshBtn" class="btn primary">Refresh data</button><button id="resetBtn" class="btn ghost">Reset</button></div>
-  </div>
-
-  <div class="quickbar" id="quickbar">
-    <span class="quicklabel">Quick view</span>
-    <button class="chip on" data-group="all">All positions</button>
-    <button class="chip fantasy" data-group="fantasy">Fantasy</button>
-    <button class="chip" data-group="offense">Offense</button>
-    <button class="chip defense" data-group="defense">Defense</button>
-    <button class="chip st" data-group="st">Special teams</button>
-  </div>
-
-  <details class="settings">
-    <summary>⚙️ API settings & DraftSharks controls</summary>
-    <div class="settings-grid">
-      <div class="field"><label>Parse API key</label><input id="dsKey" type="password" placeholder="X-API-Key" autocomplete="off" /><div class="hint warn">For private/local use only. Browser SPAs expose keys; use a serverless proxy before public deployment with a real key.</div></div>
-      <div class="field"><label>DraftSharks scoring</label><select id="scoring"><option value="half-ppr">Half-PPR</option><option value="ppr">PPR</option><option value="non-ppr">Non-PPR</option></select><div class="hint">Rankings are loaded with one all-position call instead of four position calls.</div></div>
-      <div class="field"><label>League format</label><select id="leagueType"><option value="standard">Standard</option><option value="superflex">Superflex</option></select><div class="hint">DraftSharks rankings/risk are fantasy-only; ESPN remains the source for the full player board.</div></div>
-      <div class="actions" style="align-self:end;display:flex;gap:8px"><button id="loadDSBtn" class="btn">Load DraftSharks</button><button id="testBtn" class="btn ghost">Test APIs</button></div>
+    <div class="action-strip">
+      <button id="openDSBtn" class="btn ds">Open DraftSharks</button>
+      <button id="copyExporterBtn" class="btn">Copy Exporter</button>
+      <button id="pasteImportBtn" class="btn primary">Paste / Import</button>
+      <label class="btn file-btn">Upload CSV/TSV<input id="importFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"></label>
+      <span id="importStatus" class="import-status">No DraftSharks snapshot imported</span>
+      <button id="clearImportBtn" class="btn ghost mini-action">Clear Import</button>
     </div>
-  </details>
 
-  <div class="summary">
-    <div class="stat"><b id="countPlayers">0</b><span>visible players</span></div>
-    <div class="stat"><b id="countTeams">0</b><span>teams loaded</span></div>
-    <div class="stat"><b id="countInjured">0</b><span>ESPN injuries</span></div>
-    <div class="stat"><b id="countPractice">0</b><span>practice alerts</span></div>
-    <div class="stat"><b id="countDS">0</b><span>DraftSharks matches</span></div>
-    <div class="stat"><b id="lastUpdated">—</b><span>last refresh</span></div>
-  </div>
+    <div class="filters">
+      <input id="search" class="search" placeholder="Search player, team, position…" autocomplete="off">
+      <div class="team-picker" id="teamPicker">
+        <button id="teamButton" class="selectlike" type="button"><span class="team-main"><span id="teamButtonLogo"></span><span id="teamButtonText">All teams</span></span><span>⌄</span></button>
+        <div id="teamMenu" class="team-menu"></div>
+      </div>
+      <select id="posFilter"><option value="">All positions</option></select>
+      <select id="healthFilter">
+        <option value="">All health</option>
+        <option value="injured">ESPN injury listed</option>
+        <option value="healthy">No ESPN injury</option>
+        <option value="practice">Any WED/THU/FRI practice note</option>
+        <option value="dnp">Any DNP</option>
+        <option value="limited">Any limited practice</option>
+        <option value="highrisk">DS risk ≥ 50%</option>
+      </select>
+      <button id="refreshBtn" class="btn primary">Refresh ESPN</button>
+      <button id="resetBtn" class="btn ghost">Reset</button>
+    </div>
 
-  <div class="content">
-    <div class="table-head"><div><strong>Active NFL Player Board</strong> <span id="loadState" class="small"></span></div><div class="small">WED / THU / FRI is inferred from recent DraftSharks practice news when available. Click a player for detail.</div></div>
-    <div class="table-wrap"><table>
-      <thead><tr>
-        <th class="sort" data-sort="name">Player ↕</th><th class="sort" data-sort="teamAbbr">Team ↕</th><th class="sort" data-sort="position">Pos ↕</th><th>ESPN health</th><th>WED</th><th>THU</th><th>FRI</th><th class="sort" data-sort="risk">DS risk ↕</th><th class="sort" data-sort="rank">DS rank ↕</th><th>Projection</th><th>ADP</th><th>Bye</th><th>Jersey</th><th>Experience</th>
-      </tr></thead><tbody id="rows"></tbody>
-    </table><div id="empty" class="empty">Loading ESPN active players…</div></div>
-  </div>
+    <div class="quickline" id="quickbar">
+      <button class="chip on" data-group="all">All</button>
+      <button class="chip fantasy" data-group="fantasy">Fantasy</button>
+      <button class="chip" data-group="offense">Offense</button>
+      <button class="chip defense" data-group="defense">Defense</button>
+      <button class="chip st" data-group="st">Special Teams</button>
+      <span class="mini-stats"><b id="countPlayers">0</b> visible · <b id="countTeams">0</b> teams · <b id="countInjured">0</b> injured · <b id="countPractice">0</b> practice alerts · <b id="countDS">0</b> DS matched</span>
+      <span id="lastUpdated" class="last-updated">—</span>
+      <details class="advanced">
+        <summary>Optional Parse API</summary>
+        <div class="advanced-pop">
+          <input id="dsKey" type="password" placeholder="Parse X-API-Key">
+          <select id="scoring"><option value="half-ppr">Half-PPR</option><option value="ppr">PPR</option><option value="non-ppr">Non-PPR</option></select>
+          <select id="leagueType"><option value="standard">Standard</option><option value="superflex">Superflex</option></select>
+          <button id="loadDSBtn" class="btn">Live DS API</button>
+          <button id="testBtn" class="btn ghost">Test</button>
+          <small>Optional only. Static import uses zero Parse credits.</small>
+        </div>
+      </details>
+    </div>
+  </header>
+
+  <main class="data-panel">
+    <div class="table-head">
+      <div><strong>Active NFL Player Board</strong> <span id="loadState"></span></div>
+      <div id="matchStatus" class="match-status">ESPN player matching will appear here after import.</div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th class="sort" data-sort="name">Player ↕</th>
+          <th class="sort" data-sort="teamAbbr">Team ↕</th>
+          <th class="sort" data-sort="position">Pos ↕</th>
+          <th>ESPN Health</th>
+          <th>WED</th><th>THU</th><th>FRI</th>
+          <th class="sort" data-sort="rank">DS Rank ↕</th>
+          <th>Tier</th>
+          <th class="sort" data-sort="risk">Injury Risk ↕</th>
+          <th>ADP</th><th>Bye</th><th>SOS</th>
+          <th>Floor</th><th>Cons</th><th>DS Proj</th><th>Ceil</th><th>3D</th>
+          <th>Games</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty">Loading ESPN active players…</div>
+    </div>
+  </main>
+</div>
+
+<div id="importModal" class="modal-backdrop">
+  <section class="modal-card import-card">
+    <div class="modal-head"><div><b>Import DraftSharks Rankings</b><small>Zero Parse credits</small></div><button id="closeImportBtn" class="btn ghost">Close</button></div>
+    <div class="import-guide">
+      <b>Fast workflow:</b> Open DraftSharks → DevTools Console → paste exporter → Enter → return here → Paste from Clipboard / ⌘V → Import.
+    </div>
+    <div class="import-actions">
+      <button id="modalOpenDSBtn" class="btn ds">1. Open Half-PPR Rankings</button>
+      <button id="modalCopyExporterBtn" class="btn">2. Copy Console Exporter</button>
+      <button id="readClipboardBtn" class="btn">3. Paste from Clipboard</button>
+    </div>
+    <textarea id="importText" spellcheck="false" placeholder="Paste the copied DraftSharks TSV here…"></textarea>
+    <div class="modal-foot">
+      <span id="importPreview">Expected columns: Tier, Rank, Player, Team, Pos, Games, ADP, Bye, SOS, Injury Risk, Floor Proj, Cons Proj, DS Proj, Ceil Proj, 3D Value</span>
+      <button id="importTextBtn" class="btn primary">Import & Match to ESPN</button>
+    </div>
+  </section>
 </div>
 
 <div id="drawerBackdrop" class="drawer-backdrop"><aside class="drawer"><div class="drawer-top"><strong>Player detail</strong><button id="closeDrawer" class="btn ghost">Close</button></div><div id="drawerBody" class="drawer-body"></div></aside></div>
 <div id="toast" class="toast"></div>
-
 <script src="./draftsharks.js"></script>
 </body>
 </html>
